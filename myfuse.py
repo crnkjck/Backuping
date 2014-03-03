@@ -199,55 +199,55 @@ class Backups:
         self.targetPath = os.path.join(path, "target/backups/")
         self.allBackups = {}
         self.initExistingBackups()
-        self.cache = {}
+        # self.cache = {}
 
-    def _parse_path(self, path):
-        dictOfExistingBackups = self.getAllBackups()
-        head, file = os.path.split(path)
-        folders = []
-        backup = None
-        while 1:
-            head, folder = os.path.split(head)
-            if folder != "" and folder not in dictOfExistingBackups:
-                folders.append(folder)
-            elif folder in dictOfExistingBackups:
-                backup = folder
-            elif head in dictOfExistingBackups:
-                backup = folder
-            else:
-                if head != "" and head != "/" and head not in dictOfExistingBackups:
-                    folders.append(path)
-                break
-        folders.reverse()
-        print "file je: " + file + "folders su: " + ', '.join(folders) + "backup je: "
-        return file, folders, backup
-
-    def _get_object(self, path):
-        dictOfExistingBackups = self.getAllBackups()
-        file, folders, backup = self._parse_path(path)
-        if backup is None:
-            backup = file
-        if path in self.cache:
-            object = self.cache[path]
-        elif backup in dictOfExistingBackups and len(folders) == 0 and backup == file:
-            object = dictOfExistingBackups[backup]
-        elif backup in dictOfExistingBackups and len(folders) == 0 and backup != file:
-            object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
-        elif backup in dictOfExistingBackups and len(folders) > 0:
-            object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
-        else:
-            object = None
-        if object is not None and path not in self.cache:
-            for key in self.cache.iterkeys():
-                print key
-            self.cache[path] = object
-        return object
+    # def _parse_path(self, path):
+    #     dictOfExistingBackups = self.getAllBackups()
+    #     head, file = os.path.split(path)
+    #     folders = []
+    #     backup = None
+    #     while 1:
+    #         head, folder = os.path.split(head)
+    #         if folder != "" and folder not in dictOfExistingBackups:
+    #             folders.append(folder)
+    #         elif folder in dictOfExistingBackups:
+    #             backup = folder
+    #         elif head in dictOfExistingBackups:
+    #             backup = folder
+    #         else:
+    #             if head != "" and head != "/" and head not in dictOfExistingBackups:
+    #                 folders.append(path)
+    #             break
+    #     folders.reverse()
+    #     print "file je: " + file + "folders su: " + ', '.join(folders) + "backup je: "
+    #     return file, folders, backup
+    #
+    # def _get_object(self, path):
+    #     dictOfExistingBackups = self.getAllBackups()
+    #     file, folders, backup = self._parse_path(path)
+    #     if backup is None:
+    #         backup = file
+    #     if path in self.cache:
+    #         object = self.cache[path]
+    #     elif backup in dictOfExistingBackups and len(folders) == 0 and backup == file:
+    #         object = dictOfExistingBackups[backup]
+    #     elif backup in dictOfExistingBackups and len(folders) == 0 and backup != file:
+    #         object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
+    #     elif backup in dictOfExistingBackups and len(folders) > 0:
+    #         object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
+    #     else:
+    #         object = None
+    #     if object is not None and path not in self.cache:
+    #         for key in self.cache.iterkeys():
+    #             print key
+    #         self.cache[path] = object
+    #     return object
 
     def initExistingBackups(self):
         self.cache = {}
         myList = os.listdir(self.targetPath)
         for f in myList:
-            self.allBackups[f] = ExistingBackup(self.mountPoint, Target(self.path), f).get_root_object()
+            self.allBackups[f] = ExistingBackup(self.mountPoint, Store(self.path), f).get_root_object()
         # head, file_name = os.path.split('/bin/idea.properties')
         # folders = []
         # while 1:

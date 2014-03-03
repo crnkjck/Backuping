@@ -15,7 +15,7 @@ objects_init = True
 
 
 # do buducna
-class Target():
+class Store():
 
     def __init__(self, pathname):
         self.target_path = os.path.join(pathname, "target")
