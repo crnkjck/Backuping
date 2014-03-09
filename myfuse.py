@@ -15,7 +15,6 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         self.root = root
         self.allbackups = allbackups
         self.mountpoint = mountpoint
-        self.cache = {}
 
     # Helpers
     # =======
@@ -53,14 +52,10 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
             backup = file
         if backup in dictOfExistingBackups and len(folders) == 0 and backup == file:
             object = dictOfExistingBackups[backup]
-        elif path in self.cache:
-            return self.cache[path]
         elif backup in dictOfExistingBackups and len(folders) == 0 and backup != file:
             object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
-            self.cache[path] = object
         elif backup in dictOfExistingBackups and len(folders) > 0:
             object = dictOfExistingBackups[backup].get_object_by_path(folders, file)
-            self.cache[path] = object
         else:
             object = None
         return object
@@ -201,26 +196,26 @@ class Backups:
         self.initExistingBackups()
         # self.cache = {}
 
-    # def _parse_path(self, path):
-    #     dictOfExistingBackups = self.getAllBackups()
-    #     head, file = os.path.split(path)
-    #     folders = []
-    #     backup = None
-    #     while 1:
-    #         head, folder = os.path.split(head)
-    #         if folder != "" and folder not in dictOfExistingBackups:
-    #             folders.append(folder)
-    #         elif folder in dictOfExistingBackups:
-    #             backup = folder
-    #         elif head in dictOfExistingBackups:
-    #             backup = folder
-    #         else:
-    #             if head != "" and head != "/" and head not in dictOfExistingBackups:
-    #                 folders.append(path)
-    #             break
-    #     folders.reverse()
-    #     print "file je: " + file + "folders su: " + ', '.join(folders) + "backup je: "
-    #     return file, folders, backup
+    def _parse_path(self, path):
+        dictOfExistingBackups = self.getAllBackups()
+        head, file = os.path.split(path)
+        folders = []
+        backup = None
+        while 1:
+            head, folder = os.path.split(head)
+            if folder != "" and folder not in dictOfExistingBackups:
+                folders.append(folder)
+            elif folder in dictOfExistingBackups:
+                backup = folder
+            elif head in dictOfExistingBackups:
+                backup = folder
+            else:
+                if head != "" and head != "/" and head not in dictOfExistingBackups:
+                    folders.append(path)
+                break
+        folders.reverse()
+        print "file je: " + file + "folders su: " + ', '.join(folders) + "backup je: "
+        return file, folders, backup
     #
     # def _get_object(self, path):
     #     dictOfExistingBackups = self.getAllBackups()
@@ -259,10 +254,11 @@ class Backups:
         #             folders.append(head)
         #         break
         #     folders.reverse()
-        # file_name, folders, backup = self._parse_path('/uvdl/uvdl/uvdl')
+        # file_name, folders, backup = self._parse_path('/test/test/test')
         #test = se;f
         # block_size = constants.CONST_BLOCK_SIZE
-        #test = self.allBackups['latest'].get_object_by_path(folders, file_name)
+        # test = self.allBackups['latest'].get_object_by_path(folders, file_name)
+        # test3 = self.allBackups['latest'].get_object_by_path(folders, file_name)
         # test = self._get_object('/latest/uvdl/uvdl/uvdl')
         # test2 = self._get_object('/latest/uvdl/uvdl/uvdl')
         # # file_name = test.target.get_object_path(test.side_dict['hash'])
