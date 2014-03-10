@@ -47,11 +47,33 @@ class Store():
         latest_tmp_path = os.path.join(self.target_path, "backups")
         return os.path.join(latest_tmp_path, "latest")
 
-    def save_file(self):
-        return None
+    def save_file(self, source_path, name, block_size = constants.CONST_BLOCK_SIZE):
+        file_hash = hashlib.sha1()
+        with open(source_path, "rb") as SF:
+            target_file = self.get_object_path(name)
+            with open(target_file, "wb") as TF:
+                while True:
+                    block = SF.read(block_size)
+                    file_hash.update(block)
+                    TF.write(block)
+                    if not block:
+                        self.file_rename(target_file,file_hash.hexdigest())
+                        break
+            TF.close()
+        SF.close()
+        return file_hash.hexdigest()
 
     def get_object(self, hash):
         return None
+
+    def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
+        file_hash = hashlib.sha1()
+        with open(src_file, "rb") as SF :
+            while True:
+                block = SF.read(block_size)
+                file_hash.update(block)
+                if not block : break
+        return file_hash.hexdigest()
         
     
 class Backup():
@@ -277,7 +299,7 @@ class SourceFile(SourceObject):
         SourceObject.__init__(self, source_path, store, lstat, target_object)
 
     def save_file(self):
-        return self.store.save_file()
+        return self.store.save_file(self.source_path, self.name)
 
     def file_copy(self, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
