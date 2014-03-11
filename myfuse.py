@@ -158,7 +158,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
     def open(self, path, flags):
         object = self._get_object(path)
         if object is not None:
-            file_name = object.target.get_object_path(object.side_dict['hash'])
+            file_name = object.store.get_object_path(object.side_dict['hash'])
             return os.open(file_name, flags)
         else:
             raise IOError(errno.EINVAL, 'Invalid file path')

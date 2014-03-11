@@ -69,8 +69,7 @@ class Store():
         return file_hash.hexdigest()
 
     def get_object_file(self, hash, mode):
-        object_path = os.path.join(self.target_path, "backups")
-        return open(os.path.join(object_path, hash), mode)
+        return open(self.get_object_path(hash), mode)
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
@@ -307,6 +306,7 @@ class SourceFile(SourceObject):
     def save_file(self):
         return self.store.save_file(self.source_path, self.name)
 
+    #REFACTORED
     def backup(self):
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
@@ -346,17 +346,15 @@ class SourceDir(SourceObject):
         SourceObject.__init__(self, source_path, store, lstat, target_object)
         if self.target_object != None: print(self.target_object.side_dict)
 
+    #REFACTORED
     def pickling(self, input_dict):
         pi = pickle.dumps(input_dict)
         hash_name = hashlib.sha1(pi).hexdigest()
         if (self.target_object == None
             or not os.path.exists(self.store.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
-            tmp = self.store.get_object_path(hash_name)
-            #print tmp
-            #print pi
-            with open(tmp, "wb") as DF:
-                    DF.write(pi)
-                    DF.close()
+            with self.store.get_object_file(hash_name, "wb") as DF:
+                DF.write(pi)
+                DF.close()
         return hash_name
 
     def backup(self):
@@ -389,13 +387,13 @@ class SourceLnk(SourceObject):
         #print source_path
         SourceObject.__init__(self, source_path, store, lstat, target_object)
 
+    #REFACTORED
     def make_lnk(self):
         link_target = os.readlink(self.source_path)
         hash_name = hashlib.sha1()
         hash_name.update(link_target)
-        file_name = self.store.get_object_path(hash_name.hexdigest())
-        with open(file_name,"wb") as DF:
-                DF.write(link_target)
+        with self.store.get_object_file(hash_name.hexdigest(), "wb") as DF:
+            DF.write(link_target);
         return hash_name.hexdigest()
                 
     #def initial_backup(self):
@@ -437,8 +435,7 @@ class TargetFile(TargetObject):
 
     def recover(self, block_size = constants.CONST_BLOCK_SIZE):
         # reverse file_copy()
-        file_name = self.store.get_object_path(self.side_dict['hash'])
-        with open(file_name, "rb") as TF:
+        with self.store.get_object_file(self.side_dict['hash'], "wb") as TF:
             #recovery_file = os.path.join(self.source_path)#name)
             with open(self.source_path, "wb") as RF:
                 while True:
@@ -537,8 +534,7 @@ class TargetLnk(TargetObject):
         TargetObject.__init__(self, source_path, store, lstat, side_dict)
 
     def read_backuped_lnk(self):
-        file_name = self.store.get_object_path(self.side_dict['hash'])
-        with open(file_name, "rb") as TF:
+        with self.store.get_object_file(self.side_dict['hash'], "rb") as TF:
             backuped_link_name = TF.read()
         return backuped_link_name
 
