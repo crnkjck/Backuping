@@ -47,6 +47,11 @@ class Store():
         latest_tmp_path = os.path.join(self.target_path, "backups")
         return os.path.join(latest_tmp_path, "latest")
 
+    @staticmethod
+    def file_rename(old_name, new_name):
+        new_file_name = os.path.join(os.path.dirname(old_name), new_name)
+        os.rename(old_name, new_file_name)
+
     def save_file(self, source_path, name, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
         with open(source_path, "rb") as SF:
@@ -57,14 +62,15 @@ class Store():
                     file_hash.update(block)
                     TF.write(block)
                     if not block:
-                        self.file_rename(target_file,file_hash.hexdigest())
+                        self.file_rename(target_file, file_hash.hexdigest())
                         break
             TF.close()
         SF.close()
         return file_hash.hexdigest()
 
-    def get_object(self, hash):
-        return None
+    def get_object_file(self, hash, mode):
+        object_path = os.path.join(self.target_path, "backups")
+        return open(os.path.join(object_path, hash), mode)
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
@@ -137,7 +143,7 @@ class NewBackup(Backup):
         self.store.init_target_dir()
         if self.existing_backup == None:    
             trg_object = None
-        else :
+        else:
             trg_object = self.existing_backup.get_root_object()
         src_object = SourceObject.create(self.source_path, self.store, trg_object)
         new_side_dict = src_object.backup()
@@ -213,10 +219,10 @@ class BackupObject():
 
     def file_rename(self, old_name, new_name):
         new_file_name = os.path.join(os.path.dirname(old_name), new_name)
-        os.rename(old_name,new_file_name)
-                
+        os.rename(old_name, new_file_name)
+
 class SourceObject(BackupObject):
-    
+
     @staticmethod
     def create(source_path, store, target_object):
         lstat = os.lstat(source_path)
@@ -238,7 +244,7 @@ class SourceObject(BackupObject):
 
         
     def exist_backup(self):
-        file_hash = self.make_hash(self.source)
+        file_hash = self.store.get_hash(self.source)
         return os.path.exists(self.store.get_object_path()) ####################################
     
     def compare_stat(self, object_stat, backuped_stat):
@@ -301,32 +307,6 @@ class SourceFile(SourceObject):
     def save_file(self):
         return self.store.save_file(self.source_path, self.name)
 
-    def file_copy(self, block_size = constants.CONST_BLOCK_SIZE):
-        file_hash = hashlib.sha1()
-        with open(self.source_path, "rb") as SF:
-            target_file = self.store.get_object_path(self.name)
-            with open(target_file, "wb") as TF:
-                while True:
-                    block = SF.read(block_size)
-                    file_hash.update(block)
-                    TF.write(block)
-                    if not block:
-                        self.file_rename(target_file,file_hash.hexdigest())
-                        break
-            TF.close()
-        SF.close()
-        return file_hash.hexdigest()
-
-    def make_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
-        file_hash = hashlib.sha1()
-        with open(src_file, "rb") as SF :
-            while True:
-                block = SF.read(block_size)
-                file_hash.update(block)
-                if not block : break
-        return file_hash.hexdigest()
-
-   
     def backup(self):
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
@@ -340,21 +320,21 @@ class SourceFile(SourceObject):
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
-                    new_hash = self.make_hash(self.source_path) # spocitaj hash a porovnaj
+                    new_hash = self.store.get_hash(self.source_path) # spocitaj hash a porovnaj
                     if (new_hash == self.target_object.side_dict['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("File mTime zmeneny. return novy side_dict(novy_hash) !")
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("File Novy object zalohy.")
-                        hash = self.file_copy()
+                        hash = self.save_file()
                         return self.make_side_dict(hash)
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("File Novy object zalohy.")
-            hash = self.file_copy()
+            hash = self.save_file()
             return self.make_side_dict(hash)
                     
                 
@@ -374,7 +354,7 @@ class SourceDir(SourceObject):
             tmp = self.store.get_object_path(hash_name)
             #print tmp
             #print pi
-            with open(tmp,"wb") as DF:
+            with open(tmp, "wb") as DF:
                     DF.write(pi)
                     DF.close()
         return hash_name
