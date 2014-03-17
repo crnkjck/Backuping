@@ -1,4 +1,5 @@
 from __future__ import with_statement
+import gzip
 from backup_lib import *
 
 __author__ = 'papaja'
@@ -160,6 +161,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         if object is not None:
             file_name = object.store.get_object_path(object.side_dict['hash'])
             return os.open(file_name, flags)
+            # return open(file_name, 'rb')
         else:
             raise IOError(errno.EINVAL, 'Invalid file path')
 
@@ -168,7 +170,8 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
 
     def read(self, path, length, offset, fh):
         os.lseek(fh, offset, os.SEEK_SET)
-        return os.read(fh, length)
+        test = os.read(fh, length)
+        return zlib.decompress(test)
 
     def write(self, path, buf, offset, fh):
          raise IOError(errno.EROFS, 'Read only filesystem')

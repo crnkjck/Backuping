@@ -4,6 +4,7 @@ import os
 import sys
 from stat import *
 from datetime import datetime as datum
+import zlib
 import constants
 
 verbose = True
@@ -59,8 +60,9 @@ class Store():
             with open(target_file, "wb") as TF:
                 while True:
                     block = SF.read(block_size)
+                    cBlock = zlib.compress(block)
                     file_hash.update(block)
-                    TF.write(block)
+                    TF.write(cBlock)
                     if not block:
                         self.file_rename(target_file, file_hash.hexdigest())
                         break
