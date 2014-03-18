@@ -170,8 +170,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
 
     def read(self, path, length, offset, fh):
         os.lseek(fh, offset, os.SEEK_SET)
-        test = os.read(fh, length)
-        return zlib.decompress(test)
+        return zlib.decompress(os.read(fh, length))
 
     def write(self, path, buf, offset, fh):
          raise IOError(errno.EROFS, 'Read only filesystem')
