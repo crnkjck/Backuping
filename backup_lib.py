@@ -4,7 +4,7 @@ import os
 import sys
 from stat import *
 from datetime import datetime as datum
-import zlib
+import gzip
 import constants
 
 verbose = True
@@ -57,12 +57,11 @@ class Store():
         file_hash = hashlib.sha1()
         with open(source_path, "rb") as SF:
             target_file = self.get_object_path(name)
-            with open(target_file, "wb") as TF:
+            with gzip.open(target_file, "wb") as TF:
                 while True:
                     block = SF.read(block_size)
-                    cBlock = zlib.compress(block)
                     file_hash.update(block)
-                    TF.write(cBlock)
+                    TF.write(block)
                     if not block:
                         self.file_rename(target_file, file_hash.hexdigest())
                         break

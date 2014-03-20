@@ -16,6 +16,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         self.root = root
         self.allbackups = allbackups
         self.mountpoint = mountpoint
+        self.gzipFiles = {}
 
     # Helpers
     # =======
@@ -160,8 +161,12 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         object = self._get_object(path)
         if object is not None:
             file_name = object.store.get_object_path(object.side_dict['hash'])
-            return os.open(file_name, flags)
+            fh = os.open(file_name, flags)
+            self.gzipFiles[fh] = gzip.open(file_name)
+            return fh
             # return open(file_name, 'rb')
+            #return None
+            #return gzip.open(file_name, 'rb')
         else:
             raise IOError(errno.EINVAL, 'Invalid file path')
 
@@ -169,8 +174,11 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
          raise IOError(errno.EROFS, 'Read only filesystem')
 
     def read(self, path, length, offset, fh):
-        os.lseek(fh, offset, os.SEEK_SET)
-        return zlib.decompress(os.read(fh, length))
+        #os.lseek(fh, offset, os.SEEK_SET)
+        #return os.read(fh, length)
+        #return zlib.decompress(os.read(fh, length))
+        return self.gzipFiles[fh].read(length)
+        #return None
 
     def write(self, path, buf, offset, fh):
          raise IOError(errno.EROFS, 'Read only filesystem')
@@ -184,7 +192,8 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         return os.fsync(fh)
 
     def release(self, path, fh):
-        return os.close(fh)
+        return self.gzipFiles[fh].close()
+        #return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
         return 0
