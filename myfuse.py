@@ -284,7 +284,7 @@ class Backups:
 
 
 def main(root, mountPoint):
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
     allbackups = Backups(root, mountPoint)
     fuse.FUSE(BackupFS(os.path.join(root, "target/backups/"), mountPoint, allbackups), mountPoint, foreground=True, default_permissions=True)
 
