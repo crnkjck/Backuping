@@ -177,6 +177,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         #os.lseek(fh, offset, os.SEEK_SET)
         #return os.read(fh, length)
         #return zlib.decompress(os.read(fh, length))
+        self.gzipFiles[fh].seek(offset);
         return self.gzipFiles[fh].read(length)
         #return None
 
@@ -192,6 +193,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         return os.fsync(fh)
 
     def release(self, path, fh):
+        os.close(fh);
         return self.gzipFiles[fh].close()
         #return os.close(fh)
 
