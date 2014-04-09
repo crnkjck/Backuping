@@ -8,8 +8,11 @@ import os
 import sys
 import errno
 import fuse
+from threading import Lock
+import contextlib
 import logging
 
+counter = 0
 
 class BackupFS(fuse.LoggingMixIn, fuse.Operations):
     def __init__(self, root, mountpoint,  allbackups):
@@ -17,6 +20,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         self.allbackups = allbackups
         self.mountpoint = mountpoint
         self.gzipFiles = {}
+        self.fileslock = Lock()
 
     # Helpers
     # =======
@@ -61,6 +65,20 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         else:
             object = None
         return object
+
+    @contextlib.contextmanager
+    def _patch_gzip_for_partial(self):
+        """
+        Context manager that replaces gzip.GzipFile._read_eof with a no-op.
+
+        This is useful when decompressing partial files, something that won't
+        work if GzipFile does it's checksum comparison.
+
+        """
+        _read_eof = gzip.GzipFile._read_eof
+        gzip.GzipFile._read_eof = lambda *args, **kwargs: None
+        yield
+        gzip.GzipFile._read_eof = _read_eof
 
     # Filesystem methods
     # ==================
@@ -161,8 +179,13 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         object = self._get_object(path)
         if object is not None:
             file_name = object.store.get_object_path(object.side_dict['hash'])
-            fh = os.open(file_name, flags)
-            self.gzipFiles[fh] = gzip.open(file_name)
+            f = gzip.open(file_name, 'rb3')
+            with self.fileslock:
+                global counter
+                counter += 1
+                self.gzipFiles[counter] = f
+                f.rewind()
+                fh = counter
             return fh
             # return open(file_name, 'rb')
             #return None
@@ -177,8 +200,11 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         #os.lseek(fh, offset, os.SEEK_SET)
         #return os.read(fh, length)
         #return zlib.decompress(os.read(fh, length))
-        self.gzipFiles[fh].seek(offset);
-        return self.gzipFiles[fh].read(length)
+        print("read({},{},{},{})".format(path,length,offset,fh))
+        with self.fileslock:
+            self.gzipFiles[fh].seek(offset)
+            with self._patch_gzip_for_partial():
+                return self.gzipFiles[fh].read(length)
         #return None
 
     def write(self, path, buf, offset, fh):
@@ -190,11 +216,15 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
             f.truncate(length)
 
     def flush(self, path, fh):
-        return os.fsync(fh)
+        return self.gzipFiles[fh].flush()
+        ##return os.fsync(fh)
 
     def release(self, path, fh):
-        os.close(fh);
-        return self.gzipFiles[fh].close()
+        ##os.close(fh);
+        cf = self.gzipFiles[fh].close()
+        with self.fileslock:
+            del self.gzipFiles[fh]
+        return cf
         #return os.close(fh)
 
     def fsync(self, path, fdatasync, fh):
