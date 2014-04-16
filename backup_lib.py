@@ -53,11 +53,15 @@ class Store():
         new_file_name = os.path.join(os.path.dirname(old_name), new_name)
         os.rename(old_name, new_file_name)
 
-    def save_file(self, source_path, name, block_size = constants.CONST_BLOCK_SIZE):
+    def save_file(self, source_path, name, block_size = constants.CONST_BLOCK_SIZE, previous_hash = None):
         file_hash = hashlib.sha1()
         with open(source_path, "rb") as SF:
             target_file = self.get_object_path(name)
             with gzip.open(target_file, "wb") as TF:
+                TF.write("gz\n")
+                TF.write("signature\n")
+                TF.write(str(0))
+                TF.write("\n")
                 while True:
                     block = SF.read(block_size)
                     file_hash.update(block)
@@ -168,7 +172,7 @@ class ExistingBackup(Backup):
 
     def get_root_object(self):
         side_dict = self.get_backup(self.backup_time)
-        return TargetObject.create(self.source_path, self.store, side_dict)
+        return StoreObject.create(self.source_path, self.store, side_dict)
         
     #Recovery = ExistingBackup('/home/kmm/Plocha/source',target.get_path(),'2013-03-29T18:57:12')
     #ktoru zalohu chceme obnovit sa bude rieit na urvovni scriptu nie samtotneho backupera
@@ -179,7 +183,7 @@ class ExistingBackup(Backup):
         #max_time = self.get_latest_time(self.target)
         side_dict = self.get_backup(self.backup_time)
         #print side_dict
-        recovery_obj = TargetObject.create(self.source_path, self.store, side_dict)
+        recovery_obj = StoreObject.create(self.source_path, self.store, side_dict)
         recovery_obj.recover()
 
         
@@ -255,7 +259,7 @@ class SourceObject(BackupObject):
                 object_stat.st_mode == backuped_stat.st_mode and
                 object_stat.st_ctime == backuped_stat.st_ctime) # last metadata change time
 
-class TargetObject(BackupObject):
+class StoreObject(BackupObject):
         
     @staticmethod
     def create(source_path, store, side_dict):
@@ -263,11 +267,11 @@ class TargetObject(BackupObject):
         lstat = side_dict['lstat']
         mode = lstat.st_mode
         if S_ISDIR(mode):
-            return TargetDir(source_path, store, lstat, side_dict)
+            return StoreDir(source_path, store, lstat, side_dict)
         elif S_ISREG(mode):
-            return TargetFile(source_path, store, lstat, side_dict)
+            return StoreFile(source_path, store, lstat, side_dict)
         elif S_ISLNK(mode):
-            return TargetLnk(source_path, store, lstat, side_dict)
+            return StoreLnk(source_path, store, lstat, side_dict)
         else:
             # Unknown file
             return None
@@ -286,7 +290,7 @@ class TargetObject(BackupObject):
         try:
             os.lchown(object_path, lstat.st_uid, lstat.st_gid)
         except OSError:
-            pass # dolnit printy / handle exceptetion
+            pass # doplnit printy / handle exceptetion
         
     def __init__(self, source_path, store, lstat, side_dict ):
         if objects_init : print("Initializing TargetObject ", source_path)
@@ -354,6 +358,7 @@ class SourceDir(SourceObject):
         if (self.target_object == None
             or not os.path.exists(self.store.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
             with self.store.get_object_file(hash_name, "wb") as DF:
+                DF.write("directory\n")
                 DF.write(pi)
                 DF.close()
         return hash_name
@@ -394,6 +399,10 @@ class SourceLnk(SourceObject):
         hash_name = hashlib.sha1()
         hash_name.update(link_target)
         with self.store.get_object_file(hash_name.hexdigest(), "wb") as DF:
+            DF.write("link\n")
+            DF.write("signature\n")
+            DF.write(str(0))
+            DF.write("\n")
             DF.write(link_target);
         return hash_name.hexdigest()
                 
@@ -427,18 +436,21 @@ class SourceLnk(SourceObject):
             if verbose : print("Lnk Novy object zalohy.")
             return self.make_side_dict(self.make_lnk())
 
-class TargetFile(TargetObject):
+class StoreFile(StoreObject):
     
     def __init__(self, source_path, store, lstat, side_dict):
         if objects_init : print("Initializing TargetFile (%s)") % source_path
         #print source_path
-        TargetObject.__init__(self, source_path, store, lstat, side_dict)
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
 
     def recover(self, block_size = constants.CONST_BLOCK_SIZE):
         # reverse file_copy()
-        with self.store.get_object_file(self.side_dict['hash'], "wb") as TF:
+        with self.store.get_object_file(self.side_dict['hash'], "rb") as TF:
             #recovery_file = os.path.join(self.source_path)#name)
             with open(self.source_path, "wb") as RF:
+                TF.readline()
+                TF.readline()
+                signatureSize = TF.readline()
                 while True:
                     block = TF.read(block_size)
                     RF.write(block)
@@ -448,7 +460,7 @@ class TargetFile(TargetObject):
             TF.close()
         self.recovery_stat(self.source_path, self.side_dict['lstat'])
 
-class TargetDir(TargetObject):
+class StoreDir(StoreObject):
     
     #Pomocou tejto metody treba nacitat slovnik objektov v adresari
     #do vhodnej instancnej premennej objektu triedy TargetDir napriklad v konstruktore.
@@ -462,7 +474,7 @@ class TargetDir(TargetObject):
         #print path
         self.loaded_dict = self.unpickling(store.get_object_path( side_dict['hash']))
         self.loaded_obj = {}
-        TargetObject.__init__(self, source_path, store, lstat, side_dict)
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
         #print self.side_dict
                 
     def get_object(self, name):
@@ -474,7 +486,7 @@ class TargetDir(TargetObject):
             if ('object_' + name) in self.loaded_obj:
                 return self.loaded_obj['object_' + name]
             else:
-                new_target_object = TargetObject.create(os.path.join(self.source_path, name), self.store, self.loaded_dict[name])
+                new_target_object = StoreObject.create(os.path.join(self.source_path, name), self.store, self.loaded_dict[name])
                 self.loaded_obj['object_' + name] = new_target_object
                 return new_target_object
         else:
@@ -494,7 +506,7 @@ class TargetDir(TargetObject):
                 else:
                     return self.loaded_obj['object_' + name].get_object_by_path(folders, file_name)
             else:
-                new_target_object = TargetObject.create(os.path.join(self.source_path, name), self.store, self.loaded_dict[name])
+                new_target_object = StoreObject.create(os.path.join(self.source_path, name), self.store, self.loaded_dict[name])
                 self.loaded_obj['object_' + name] = new_target_object
                 if (name == file_name and size == 0):
                     return self.loaded_obj['object_' + name]
@@ -506,6 +518,7 @@ class TargetDir(TargetObject):
     def unpickling(self, target_path):
         #unpkl_file = os.path.join(target_path, file_name)
         with open(target_path, "rb") as UPF:
+                UPF.readline()
                 pi = UPF.read()
                 UPF.close()
         return_dict = pickle.loads(pi)
@@ -527,15 +540,18 @@ class TargetDir(TargetObject):
         # obnovit metadata adresara!!!!!!!!!!!
         self.recovery_stat(self.source_path, self.side_dict['lstat'])
     
-class TargetLnk(TargetObject):
+class StoreLnk(StoreObject):
     
     def __init__(self, source_path, store, lstat, side_dict):
         if objects_init : print("Initializing TargetLnk (%s)") % source_path
         #print source_path
-        TargetObject.__init__(self, source_path, store, lstat, side_dict)
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
 
     def read_backuped_lnk(self):
         with self.store.get_object_file(self.side_dict['hash'], "rb") as TF:
+            TF.readline()
+            TF.readline()
+            signatureSize = TF.readline()
             backuped_link_name = TF.read()
         return backuped_link_name
 
@@ -548,3 +564,18 @@ class TargetLnk(TargetObject):
     def recover(self):
         os.symlink(self.read_backuped_lnk(), self.source_path )
         self.recovery_stat(self.source_path, self.side_dict['lstat'])
+
+class StoreRawFile(StoreFile):
+
+    def __init__(self):
+        return None
+
+class StoreGzipFile(StoreFile):
+
+    def __init__(self):
+        return None
+
+class StoreDeltaFile(StoreFile):
+
+    def __init__(self):
+        return None
