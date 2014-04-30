@@ -602,20 +602,32 @@ class StoreLnk(StoreObject):
 
 class StoreRawFile(StoreFile, file):
 
-    def __init__(self, source_path, store, lstat, side_dict):
+    def __init__(self, source_path, store, lstat, side_dict, file_name):
         if objects_init : print("Initializing StoreRawFile (%s)") % source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
+        if type(file_name) == file:
+            self.__dict__.update(file.__dict__)
+        else:
+            file.__init__(self, file_name)
 
 
 class StoreGzipFile(StoreFile, gzip.GzipFile):
 
-    def __init__(self, source_path, store, lstat, side_dict):
+    def __init__(self, source_path, store, lstat, side_dict, file_name):
         if objects_init : print("Initializing StoreGzipFile (%s)") % source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
+        if type(file_name) == file:
+            self.__dict__.update(file.__dict__)
+        else:
+            file.__init__(self, file_name)
 
 
-class StoreDeltaFile(StoreFile):
+class StoreDeltaFile(StoreFile, file):
 
-    def __init__(self, source_path, store, lstat, side_dict):
+    def __init__(self, source_path, store, lstat, side_dict, file_name):
         if objects_init : print("Initializing StoreDeltaFile (%s)") % source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
+        if type(file_name) == file:
+            self.__dict__.update(file.__dict__)
+        else:
+            file.__init__(self, file_name)
