@@ -200,7 +200,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         #os.lseek(fh, offset, os.SEEK_SET)
         #return os.read(fh, length)
         #return zlib.decompress(os.read(fh, length))
-        print("read({},{},{},{})".format(path,length,offset,fh))
+        #print("read({},{},{},{})".format(path,length,offset,fh))
         with self.fileslock:
             self.gzipFiles[fh].seek(offset)
             with self._patch_gzip_for_partial():
@@ -221,8 +221,8 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
 
     def release(self, path, fh):
         ##os.close(fh);
-        cf = self.gzipFiles[fh].close()
         with self.fileslock:
+            cf = self.gzipFiles[fh].close()
             del self.gzipFiles[fh]
         return cf
         #return os.close(fh)

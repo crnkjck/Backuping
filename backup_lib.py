@@ -44,6 +44,10 @@ class Store():
         object_path = os.path.join(self.target_path, "objects")
         return os.path.join(object_path, hash)
 
+    def get_object_header_path(self, hash):
+        object_header_path = os.path.join(self.target_path, "objects")
+        return os.path.join(object_header_path, hash, "_header")
+
     def get_latest_path(self):
         latest_tmp_path = os.path.join(self.target_path, "backups")
         return os.path.join(latest_tmp_path, "latest")
@@ -57,24 +61,50 @@ class Store():
         file_hash = hashlib.sha1()
         with open(source_path, "rb") as SF:
             target_file = self.get_object_path(name)
+            target_file_header = self.get_object_header_path(name)
             with gzip.open(target_file, "wb") as TF:
-                TF.write("gz\n")
-                TF.write("signature\n")
-                TF.write(str(0))
-                TF.write("\n")
-                while True:
-                    block = SF.read(block_size)
-                    file_hash.update(block)
-                    TF.write(block)
-                    if not block:
-                        self.file_rename(target_file, file_hash.hexdigest())
-                        break
-            TF.close()
-        SF.close()
+                with open(target_file_header, "wb") as THF:
+                    THF.write("gz\n")
+                    THF.write("signature\n")
+                    THF.write(str(0))
+                    THF.write("\n")
+                    while True:
+                        block = SF.read(block_size)
+                        file_hash.update(block)
+                        TF.write(block)
+                        if not block:
+                            self.file_rename(target_file, file_hash.hexdigest())
+                            break
+                    THF.close()
+                TF.close()
+            SF.close()
         return file_hash.hexdigest()
 
     def get_object_file(self, hash, mode):
         return open(self.get_object_path(hash), mode)
+
+    def get_object_file_header(self, hash, mode):
+        return open(self.get_object_header_path(hash), mode)
+
+    def get_object_type(self, hash):
+        with self.get_object_file_header(hash, "rb") as HF:
+            object_type = HF.readline()
+            HF.close()
+            return object_type
+
+    def get_object(self, hash):
+        object_type = self.get_object_type(hash)
+        if object_type == "gz":
+            return StoreGzipFile()
+        elif object_type == "directory":
+            return StoreDir()
+        elif object_type == "link":
+            return StoreLnk()
+        elif object_type == "raw":
+            return StoreRawFile()
+        elif object_type == "delta":
+            return StoreDeltaFile()
+        return None
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
@@ -265,12 +295,18 @@ class StoreObject(BackupObject):
     def create(source_path, store, side_dict):
         #print side_dict
         lstat = side_dict['lstat']
+        object_hash = side_dict['hash']
+        object_type = store.get_object_type(object_hash)
         mode = lstat.st_mode
-        if S_ISDIR(mode):
+        if S_ISDIR(mode) and object_type == "directory":
             return StoreDir(source_path, store, lstat, side_dict)
-        elif S_ISREG(mode):
-            return StoreFile(source_path, store, lstat, side_dict)
-        elif S_ISLNK(mode):
+        elif S_ISREG(mode) and object_type == "gz":
+            return StoreGzipFile(source_path, store, lstat, side_dict)
+        elif S_ISREG(mode) and object_type == "raw":
+            return StoreRawFile(source_path, store, lstat, side_dict)
+        elif S_ISREG(mode) and object_type == "delta":
+            return StoreDeltaFile(source_path, store, lstat, side_dict)
+        elif S_ISLNK(mode) and object_type == "link":
             return StoreLnk(source_path, store, lstat, side_dict)
         else:
             # Unknown file
@@ -358,9 +394,11 @@ class SourceDir(SourceObject):
         if (self.target_object == None
             or not os.path.exists(self.store.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
             with self.store.get_object_file(hash_name, "wb") as DF:
-                DF.write("directory\n")
-                DF.write(pi)
-                DF.close()
+                with self.store.get_object_file_header(hash_name, "wb") as DHF:
+                    DHF.write("directory\n")
+                    DF.write(pi)
+                    DF.close()
+                    DHF.close()
         return hash_name
 
     def backup(self):
@@ -399,11 +437,14 @@ class SourceLnk(SourceObject):
         hash_name = hashlib.sha1()
         hash_name.update(link_target)
         with self.store.get_object_file(hash_name.hexdigest(), "wb") as DF:
-            DF.write("link\n")
-            DF.write("signature\n")
-            DF.write(str(0))
-            DF.write("\n")
-            DF.write(link_target);
+            with self.store.get_object_file_header(hash_name.hexdigest(), "wb") as DHF:
+                DHF.write("link\n")
+                DHF.write("signature\n")
+                DHF.write(str(0))
+                DHF.write("\n")
+                DF.write(link_target)
+                DHF.close()
+            DF.close()
         return hash_name.hexdigest()
                 
     #def initial_backup(self):
@@ -448,9 +489,6 @@ class StoreFile(StoreObject):
         with self.store.get_object_file(self.side_dict['hash'], "rb") as TF:
             #recovery_file = os.path.join(self.source_path)#name)
             with open(self.source_path, "wb") as RF:
-                TF.readline()
-                TF.readline()
-                signatureSize = TF.readline()
                 while True:
                     block = TF.read(block_size)
                     RF.write(block)
@@ -518,7 +556,6 @@ class StoreDir(StoreObject):
     def unpickling(self, target_path):
         #unpkl_file = os.path.join(target_path, file_name)
         with open(target_path, "rb") as UPF:
-                UPF.readline()
                 pi = UPF.read()
                 UPF.close()
         return_dict = pickle.loads(pi)
@@ -543,15 +580,12 @@ class StoreDir(StoreObject):
 class StoreLnk(StoreObject):
     
     def __init__(self, source_path, store, lstat, side_dict):
-        if objects_init : print("Initializing TargetLnk (%s)") % source_path
+        if objects_init : print("Initializing StoreLnk (%s)") % source_path
         #print source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
 
     def read_backuped_lnk(self):
         with self.store.get_object_file(self.side_dict['hash'], "rb") as TF:
-            TF.readline()
-            TF.readline()
-            signatureSize = TF.readline()
             backuped_link_name = TF.read()
         return backuped_link_name
 
@@ -564,18 +598,24 @@ class StoreLnk(StoreObject):
     def recover(self):
         os.symlink(self.read_backuped_lnk(), self.source_path )
         self.recovery_stat(self.source_path, self.side_dict['lstat'])
+        
 
-class StoreRawFile(StoreFile):
+class StoreRawFile(StoreFile, file):
 
-    def __init__(self):
-        return None
+    def __init__(self, source_path, store, lstat, side_dict):
+        if objects_init : print("Initializing StoreRawFile (%s)") % source_path
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
 
-class StoreGzipFile(StoreFile):
 
-    def __init__(self):
-        return None
+class StoreGzipFile(StoreFile, gzip.GzipFile):
+
+    def __init__(self, source_path, store, lstat, side_dict):
+        if objects_init : print("Initializing StoreGzipFile (%s)") % source_path
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
+
 
 class StoreDeltaFile(StoreFile):
 
-    def __init__(self):
-        return None
+    def __init__(self, source_path, store, lstat, side_dict):
+        if objects_init : print("Initializing StoreDeltaFile (%s)") % source_path
+        StoreObject.__init__(self, source_path, store, lstat, side_dict)
