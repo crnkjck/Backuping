@@ -35,11 +35,11 @@ class Store():
 
     def get_object_path(self, hash):
         object_path = os.path.join(self.target_path, "objects")
-        return os.path.join(object_path, hash)
+        return os.path.join(object_path, hash + ".data")
 
     def get_object_header_path(self, hash):
         object_header_path = os.path.join(self.target_path, "objects")
-        return os.path.join(object_header_path, hash)
+        return os.path.join(object_header_path, hash + ".meta")
 
     def get_latest_path(self):
         latest_tmp_path = os.path.join(self.target_path, "backups")
@@ -67,7 +67,7 @@ class Store():
                             THF.write("signature\n")
                             THF.write(str(0))
                             THF.write("\n")
-                            self.file_rename(target_file, file_hash.hexdigest() + ".meta")
+                            self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
                             THF.close()
                         break
                 TF.close()
@@ -87,6 +87,14 @@ class Store():
             return object_type
 
     def get_object(self, hash):
+        # file_name = self.get_object_path(hash)
+        # print "file name " + file_name
+        # with open(file_name, "rb") as BF:
+        #         load_dict=BF.read()
+        #         BF.close()
+        # side_dict2 = pickle.loads(load_dict)
+        # print "side dict 2 "
+        # print side_dict2
         return StoreObject.create(None, self, None)
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
