@@ -86,16 +86,8 @@ class Store():
             HF.close()
             return object_type
 
-    def get_object(self, hash):
-        # file_name = self.get_object_path(hash)
-        # print "file name " + file_name
-        # with open(file_name, "rb") as BF:
-        #         load_dict=BF.read()
-        #         BF.close()
-        # side_dict2 = pickle.loads(load_dict)
-        # print "side dict 2 "
-        # print side_dict2
-        return StoreObject.create(None, self, None)
+    def get_object(self, source_path ,hash, side_dict):
+        return StoreObject.create(source_path, self, side_dict)
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
@@ -114,12 +106,13 @@ class StoreObject(BackupObject):
         #print side_dict
         lstat = side_dict['lstat']
         object_hash = side_dict['hash']
-        object_type = store.get_object_type(object_hash)
+        object_type = store.get_object_type(object_hash).rstrip('\n')
         mode = lstat.st_mode
         if S_ISDIR(mode) and object_type == "directory":
             return StoreDir(source_path, store, lstat, side_dict)
         elif S_ISREG(mode) and object_type == "gz":
-            return StoreGzipFile(source_path, store, lstat, side_dict)
+            test = '/home/mint/Zaloha/target/backups/latest'
+            return StoreRawFile(source_path, store, lstat, side_dict, test)
         elif S_ISREG(mode) and object_type == "raw":
             return StoreRawFile(source_path, store, lstat, side_dict)
         elif S_ISREG(mode) and object_type == "delta":

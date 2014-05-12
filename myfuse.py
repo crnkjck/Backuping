@@ -180,13 +180,14 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
     def open(self, path, flags):
         object = self._get_object(path)
         if object is not None:
-            file_name = object.store.get_object_path(object.side_dict['hash'])
-            f = gzip.open(file_name, 'rb3')
+            #file_name = object.store.get_object_path(object.side_dict['hash'])
+            #f = gzip.open(file_name, 'rb3')
             with self.fileslock:
                 global counter
                 counter += 1
-                self.gzipFiles[counter] = f
-                f.rewind()
+                self.gzipFiles[counter] = object
+                object.rewind()
+                #f.rewind()
                 fh = counter
             return fh
             # return open(file_name, 'rb')
@@ -288,6 +289,7 @@ class Backups:
         myList = os.listdir(self.targetPath)
         for f in myList:
             self.allBackups[f] = ExistingBackup(self.mountPoint, Store(self.path), f).get_root_object()
+        sa = "sas"
         # head, file_name = os.path.split('/bin/idea.properties')
         # folders = []
         # while 1:
