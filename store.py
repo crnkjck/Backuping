@@ -111,12 +111,11 @@ class StoreObject(BackupObject):
         if S_ISDIR(mode) and object_type == "directory":
             return StoreDir(source_path, store, lstat, side_dict)
         elif S_ISREG(mode) and object_type == "gz":
-            test = '/home/mint/Zaloha/target/backups/latest'
-            return StoreRawFile(source_path, store, lstat, side_dict, test)
+            return StoreGzipFile(source_path, store, lstat, side_dict, store.get_object_path(side_dict['hash']))
         elif S_ISREG(mode) and object_type == "raw":
-            return StoreRawFile(source_path, store, lstat, side_dict)
+            return StoreRawFile(source_path, store, lstat, side_dict, store.get_object_path(side_dict['hash']))
         elif S_ISREG(mode) and object_type == "delta":
-            return StoreDeltaFile(source_path, store, lstat, side_dict)
+            return StoreDeltaFile(source_path, store, lstat, side_dict, store.get_object_path(side_dict['hash']))
         elif S_ISLNK(mode) and object_type == "link":
             return StoreLnk(source_path, store, lstat, side_dict)
         else:
@@ -286,7 +285,7 @@ class StoreGzipFile(StoreFile, gzip.GzipFile):
     def __init__(self, source_path, store, lstat, side_dict, file_name):
         if objects_init : print("Initializing StoreGzipFile (%s)") % source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
-        if type(file_name) == file:
+        if type(file_name) == gzip.GzipFile:
             self.__dict__.update(file.__dict__)
         else:
             gzip.GzipFile.__init__(self, file_name)
