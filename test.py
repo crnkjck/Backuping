@@ -1,3 +1,5 @@
+import librsync
+
 class MyFile(file):
 
     def __init__(self, name):
@@ -6,15 +8,14 @@ class MyFile(file):
         else:
             file.__init__(self, name)
 
-
-    def read(self, size=None):
-        print("Moj Read")
-        print(super(MyFile, self).read(size))
-
-
 def main():
-    test = MyFile("/home/papaja/Downloads/myfuse.py")
-    test.read(10)
+    dst = file('/home/papaja/first', 'rb')
+    src = file('/home/papaja/second', 'rb')
+    synced = file('/home/papaja/third', 'wb')
+    signature = librsync.signature(dst)
+    delta = librsync.delta(src, signature)
+    librsync.patch(dst, delta, synced)
+    synced.close()
 
 if __name__ == '__main__':
     main()
