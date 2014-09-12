@@ -24,6 +24,9 @@ def recovery_backup(source_path, target_path, time):
     #'/home/kmm/Plocha/target/zaloha',target,'2013-04-29T21:00:42') # treba vediet cas
     rec_back.recovery_backup()
 
+start = "\033[1m"
+end = "\033[0;0m"
+
 def print_help():
     
     print " --- Welcome in temporary Backuper quide ---"
@@ -43,7 +46,7 @@ def print_help():
     print "\t" + " recover " + " source-dir  target-dir " + " - default set as " +  "lates"
     print ""
     print "Optional settings" 
-    print "\t"  + " --list " + " - show list"
+    print "\t"  + " list " + " - show list"
     print "\t" + " 2013-04-29T21:00:42 "  + " - exactly listed backup time in ISO time format"
     
     
@@ -73,12 +76,61 @@ def get_time(time_string):
         return -1 # -1 pre latest
     else :
         return time_string[1:2]
-    
+
+def check_dir(path):
+    if os.path.isdir(path):
+        return True
+    if os.path.exists(path):
+        print("{}: not a directory".format(path))
+    else:
+        print("{}: no such file or directory".format(path))
+    return False
+
+def check_backup(store_path, backup):
+    # TODO Refactor to Store.backup_exists(backup)
+    backup_path = os.path.join(os.path.join(store_path,"target/backups"), backup)
+    if os.path.exists(backup_path):
+        return True
+    print("{}: no such backup in {}".format(backup,store_path))
+    return False
+
 def main(argv):
     #print "Hello"
-    start = "\033[1m"
-    end = "\033[0;0m"
     default_time = "latest"
+    if len(argv) < 2:
+        print_help()
+        return 1
+    cmdargs = len(argv) - 2
+    if argv[1] == "init":
+        if cmdargs == 2:
+            if check_dir(argv[2]) and check_dir(argv[3]):
+                initial_backup(argv[2],argv[3])
+                return 0
+        else:
+            print "Incorrect number of arguments for init"
+            print "See {} --help".format(argv[0])
+        return 1
+    elif argv[1] == "backup":
+        if 2 <= cmdargs <= 3:
+            if check_dir(argv[2]) and check_dir(argv[3]):
+                if cmdargs == 2:
+                    incremental_backup(argv[2],argv[3], default_time)
+                    return 0
+                elif check_backup(argv[3], argv[4]):
+                    incremental_backup(argv[2],argv[3], argv[4])
+                    return 0
+                else:
+                    return 1
+        else:
+            print "Incorrect number of arguments for backup"
+            print "See {} --help".format(argv[0])
+        return 1
+    elif argv[1] == "recover":
+        pass
+    elif argv[1] == "list":
+        pass
+    elif "--help" in argv or "-h" in argv or "help" in argv:
+        pass
     if len(argv) > 3 and len(argv) < 6: # 4 - 6 argumentov
         if len(argv) < 5 : # len 4 argumenty
             if argv[1] == "init":
