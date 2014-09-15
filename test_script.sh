@@ -96,6 +96,56 @@ echo "=========== Backuping seventh changed data =========="
 echo ""
 python backuper backup DataToBackup Backup
 cp -a DataToBackup DataToBackupCopy8
+echo "=========== 8th change of data: Creating symlinks =========="
+cd DataToBackup/Data1
+mkdir symlinks
+ln -s ../folderWithData symlinks/symlink-to-folder
+ln -s ../folder1/file3 symlinks/symlink-to-file
+ln -s symlink-to-file symlinks/symlink-to-symlink
+ln -s ../no-folder/no-file symlinks/dangling-symlink1
+ln -s ../folder1/no-file symlinks/dangling-symlink2
+cd ../../
+sleep 5
+echo "=========== Backing up 8th changed data =========="
+echo ""
+python backuper backup DataToBackup Backup
+cp -a DataToBackup DataToBackupCopy9
+
+echo "=========== 9th change of data: Messing with object types =========="
+cd DataToBackup/Data1
+# change a folder to a symlink
+mv folder1 real-folder1
+ln -s real-folder1 folder1
+# change a folder to a regular file
+mv folderWithData real-folderWithData
+echo "HA! The name lies. This is a file, not a folder." > folderWithData
+mv symlinks/symlink-to-folder symlinks/real-symlink-to-folder
+echo "This is actually a regular file." > symlinks/symlink-to-folder
+mv symlinks/symlink-to-file symlinks/real-symlink-to-file
+mkdir symlinks/symlink-to-file
+mkdir symlinks/symlink-to-file/this-is-actually-a-folder
+echo "1234567890" > symlinks/symlink-to-file/with-some-data
+cd ../../
+sleep 5
+echo "=========== Backing up 9th changed data =========="
+echo ""
+python backuper backup DataToBackup Backup
+cp -a DataToBackup DataToBackupCopy10
+
+echo "=========== 10th change of data: Cleanup after 8 and 9 =========="
+cd DataToBackup/Data1
+rm -r symlinks
+rm folder1
+mv real-folder1 folder1
+rm folderWithData
+mv real-folderWithData folderWithData
+cd ../../
+sleep 5
+echo "=========== Backing up 10th changed data =========="
+echo ""
+python backuper backup DataToBackup Backup
+cp -a DataToBackup DataToBackupCopy11
+
 echo "=========== Mounting FUSE file system of backuped data =========="
 echo ""
 python myfuse.py Backup MountPoint &
@@ -106,7 +156,7 @@ DIRS=(`ls -d */`)
 #do
 #    echo ${DIR}
 #done
-for i in {1..8}
+for i in {1..11}
 do
     echo "========== diff off DataToBackupCopy" ${i} " and " ${DIRS[$i - 1]} " =========="
     diff -r ../DataToBackupCopy${i} ${DIRS[$i - 1]}
