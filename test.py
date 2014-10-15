@@ -38,7 +38,7 @@ def main():
     # delta = librsync.delta(src, signature)
     # librsync.patch(dst, delta, synced)
     # synced.close()
-    sigProcess = subprocess.Popen(['rdiff', 'signature', dst.read()], stdout=subprocess.PIPE)
+    sigProcess = subprocess.Popen(['rdiff', 'signature', dst.name], stdout=subprocess.PIPE)
     # patchProcess = subprocess.Popen(['rdiff', 'patch', dst.name, deltaFile.name], stdout=subprocess.PIPE)
     signature, signatureErr = sigProcess.communicate()
     if (signatureErr is None):
