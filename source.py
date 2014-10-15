@@ -164,7 +164,7 @@ class SourceLnk(SourceObject):
                     if verbose : print("Lnk mTime bez zmeny. return novy side_dict(stary_hash) !")
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
-                    return self.make_dict(self.target_object.side_dict[self.name]['hash']) #stary hash
+                    return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
                     link_target = os.readlink(self.source_path)
@@ -172,7 +172,7 @@ class SourceLnk(SourceObject):
                     if (new_hash == self.target_object.side_dict[self.name]['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
-                        return self.make_dict(new_hash)
+                        return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("Lnk Novy object zalohy !")
                         return self.make_side_dict(self.make_lnk())
