@@ -1,4 +1,3 @@
-import librsync
 import io
 import pickle
 import subprocess
@@ -14,10 +13,10 @@ class MyFile(io.FileIO):
 def main():
     # myFile = MyFile('/home/papaja/third')
     # print(myFile.readline().decode("UTF-8"))
-    dst = open('/home/papaja/Diplomovka/first', 'rb')
-    src = open('/home/papaja/Diplomovka/second', 'rb')
+    dst = open('first', 'rb')
+    src = open('second', 'rb')
     # synced = open('/home/papaja/third', 'wb')
-    signatureFile = open('/home/papaja/signature', 'wb')
+    signatureFile = open('signature', 'wb')
     # deltaFile = open('/home/papaja/delta', 'rb');
     # hashes = pyrsync2.blockchecksums(dst)
     # hashes_save = {
@@ -52,13 +51,24 @@ def main():
         # signatureFile.readline()
         # sizeOfSignature = signatureFile.readline()
         # print(sizeOfSignature)
-        deltaProcess = subprocess.Popen(['rdiff', 'delta', signatureFile.name, src.name], stdout=subprocess.PIPE)
-        delta, deltaErr = deltaProcess.communicate()
-        if (deltaErr is None):
-             print(delta)
-            # patch, patchError = patchProcess.communicate()
-            # if (patchError is None):
-            # print("hello")
+	with open('signature','r') as sig:
+	    sigdata = sig.read(256)
+            deltaProcess = subprocess.Popen(['rdiff', 'delta', '-', src.name], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+	    deltaProcess.stdin.write(sigdata)
+	    deltaProcess.stdin.close()
+	    while True:
+		print('-----')
+		deltaData = deltaProcess.stdout.read(16)
+		if deltaData:
+			print(deltaData)
+		else:
+			break
+            #delta, deltaErr = deltaProcess.communicate()
+            #if (deltaErr is None):
+            #     print(delta)
+                # patch, patchError = patchProcess.communicate()
+                # if (patchError is None):
+                # print("hello")
     # signature.write()
     # signature.close()
     # subprocess.call(['rdiff', 'signature', '/home/papaja/Diplomovka/first', '/home/papaja/Diplomovka/signature'])
