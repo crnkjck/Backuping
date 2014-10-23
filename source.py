@@ -50,8 +50,11 @@ class SourceFile(SourceObject):
         #print source_path
         SourceObject.__init__(self, source_path, store, lstat, target_object)
 
-    def save_file(self):
-        return self.store.save_file(self.source_path, self.name)
+    def save_file(self, previous_hash = None):
+        if not previous_hash == None:
+            return self.store.save_file(self.source_path, self.name, previous_hash)
+        else:
+            return self.store.save_file(self.source_path, self.name)
 
     #REFACTORED
     def backup(self):
@@ -68,13 +71,14 @@ class SourceFile(SourceObject):
                 else:
                     # rozny mtime
                     new_hash = self.store.get_hash(self.source_path) # spocitaj hash a porovnaj
+                    # ak je to delta treba zrekonstruovat koncovy subor a pytat sa na ten?
                     if (new_hash == self.target_object.side_dict['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("File mTime zmeneny. return novy side_dict(novy_hash) !")
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("File Novy object zalohy.")
-                        hash = self.save_file()
+                        hash = self.save_file(self.target_object.side_dict['hash'])
                         return self.make_side_dict(hash)
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")

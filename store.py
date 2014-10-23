@@ -5,6 +5,8 @@ import os
 import hashlib
 import gzip
 import constants
+import subprocess
+import sys
 from stat import *
 from backup_lib import BackupObject
 from backup_lib import objects_init
@@ -50,29 +52,64 @@ class Store():
         new_file_name = os.path.join(os.path.dirname(old_name), new_name)
         os.rename(old_name, new_file_name)
 
-    def save_file(self, source_path, name, block_size = constants.CONST_BLOCK_SIZE, previous_hash = None):
+    def save_file(self, source_path, name, previous_hash = None, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
-        with open(source_path, "rb") as SF:
-            target_file = self.get_object_path(name)
-            target_file_header = self.get_object_header_path(name)
-            with gzip.open(target_file, "wb") as TF:
-                while True:
-                    block = SF.read(block_size)
-                    file_hash.update(block)
-                    TF.write(block)
-                    if not block:
-                        self.file_rename(target_file, file_hash.hexdigest() + ".data")
-                        with open(target_file_header, "wb") as THF:
-                            THF.write("gz\n")
-                            THF.write("signature\n")
-                            THF.write(str(0))
-                            THF.write("\n")
-                            self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
-                            THF.close()
-                        break
-                TF.close()
-            SF.close()
-        return file_hash.hexdigest()
+        target_file = self.get_object_path(name)
+        target_file_header = self.get_object_header_path(name)
+        if not previous_hash == None:
+            if self.get_object_type(previous_hash) == "gz\n":
+                previous_file = self.get_object_file_header(previous_hash, "rb")
+                previous_file.readline()
+                previous_file.readline()
+                sig_size = previous_file.readline()
+                sig_data = previous_file.read(int(sig_size))
+                deltaProcess = subprocess.Popen(['rdiff', 'delta', '-', source_path], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+                deltaProcess.stdin.write(sig_data)
+                deltaProcess.stdin.close()
+                with gzip.open(target_file, "wb") as TF:
+                    while True:
+                        deltaData = deltaProcess.stdout.read(16)
+                        if deltaData:
+                            file_hash.update(deltaData)
+                            TF.write(deltaData)
+                        else:
+                             with open(target_file_header, "wb") as THF:
+                                THF.write("delta\n")
+                                THF.close()
+                                self.file_rename(target_file, file_hash.hexdigest() + ".data")
+                                self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
+                                break
+                    TF.close()
+                return file_hash.hexdigest()
+            elif self.get_object_type(previous_hash) == "delta\n":
+                # treba zrekonstruovat subor, z neho si vypocitat signaturu a ulozit deltu k najnovsiemu
+                return
+        else:
+            with open(source_path, "rb") as SF:
+                with gzip.open(target_file, "wb") as TF:
+                    while True:
+                        block = SF.read(block_size)
+                        file_hash.update(block)
+                        TF.write(block)
+                        if not block:
+                            self.file_rename(target_file, file_hash.hexdigest() + ".data")
+                            with open(target_file_header, "wb") as THF:
+                                THF.write("gz\n")
+                                THF.write("signature\n")
+                                sigProcess = subprocess.Popen(['rdiff', 'signature', source_path], stdout=subprocess.PIPE)
+                                signature, signatureErr = sigProcess.communicate()
+                                if (signatureErr is None):
+                                    THF.write(str(sys.getsizeof(signature)))
+                                    THF.write("\n")
+                                    THF.write(signature)
+                                else:
+                                    THF.write(str(0))
+                                self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
+                                THF.close()
+                            break
+                    TF.close()
+                SF.close()
+            return file_hash.hexdigest()
 
     def get_object_file(self, hash, mode):
         return open(self.get_object_path(hash), mode)
