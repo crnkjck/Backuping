@@ -6,7 +6,7 @@ import hashlib
 import gzip
 import constants
 import subprocess
-import sys
+import tempfile
 from stat import *
 from backup_lib import BackupObject
 from backup_lib import objects_init
@@ -57,7 +57,8 @@ class Store():
         target_file = self.get_object_path(name)
         target_file_header = self.get_object_header_path(name)
         if not previous_hash == None:
-            if self.get_object_type(previous_hash) == "gz\n":
+            previous_type = self.get_object_type(previous_hash)
+            if previous_type == "gz\n" or previous_type == "delta\n" :
                 previous_file = self.get_object_file_header(previous_hash, "rb")
                 previous_file.readline()
                 previous_file.readline()
@@ -66,7 +67,7 @@ class Store():
                 deltaProcess = subprocess.Popen(['rdiff', 'delta', '-', source_path], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
                 deltaProcess.stdin.write(sig_data)
                 deltaProcess.stdin.close()
-                with gzip.open(target_file, "wb") as TF:
+                with open(target_file, "wb") as TF: #bol gzip
                     while True:
                         deltaData = deltaProcess.stdout.read(16)
                         if deltaData:
@@ -75,18 +76,31 @@ class Store():
                         else:
                              with open(target_file_header, "wb") as THF:
                                 THF.write("delta\n")
+                                THF.write("signature\n")
+                                sigProcess = subprocess.Popen(['rdiff', 'signature', source_path], stdout=subprocess.PIPE)
+                                signature, signatureErr = sigProcess.communicate()
+                                if (signatureErr is None):
+                                    THF.write(str(len(signature)))
+                                    THF.write("\n")
+                                    THF.write(signature)
+                                else:
+                                    THF.write(str(0))
+                                THF.write("\n")
+                                THF.write("previous\n")
+                                THF.write(previous_hash)
                                 THF.close()
                                 self.file_rename(target_file, file_hash.hexdigest() + ".data")
                                 self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
                                 break
                     TF.close()
                 return file_hash.hexdigest()
-            elif self.get_object_type(previous_hash) == "delta\n":
-                # treba zrekonstruovat subor, z neho si vypocitat signaturu a ulozit deltu k najnovsiemu
-                return
+            # elif self.get_object_type(previous_hash) == "delta\n":
+            #
+            #     # treba zrekonstruovat subor, z neho si vypocitat signaturu a ulozit deltu k najnovsiemu
+            #     return
         else:
             with open(source_path, "rb") as SF:
-                with gzip.open(target_file, "wb") as TF:
+                with open(target_file, "wb") as TF: #bol gzip
                     while True:
                         block = SF.read(block_size)
                         file_hash.update(block)
@@ -99,7 +113,7 @@ class Store():
                                 sigProcess = subprocess.Popen(['rdiff', 'signature', source_path], stdout=subprocess.PIPE)
                                 signature, signatureErr = sigProcess.communicate()
                                 if (signatureErr is None):
-                                    THF.write(str(sys.getsizeof(signature)))
+                                    THF.write(str(len(signature)))
                                     THF.write("\n")
                                     THF.write(signature)
                                 else:
@@ -337,3 +351,69 @@ class StoreDeltaFile(StoreFile, file):
             self.__dict__.update(file.__dict__)
         else:
             file.__init__(self, file_name)
+
+    def get_previous_hash(self, hash):
+        with self.store.get_object_file_header(hash, "rb") as THF:
+            THF.readline()
+            THF.readline()
+            sig_size = THF.readline()
+            THF.read(int(sig_size))
+            THF.readline()
+            if THF.readline() == "previous\n":
+                previous_hash = THF.readline()
+            else:
+                previous_hash = None
+            THF.close
+            return previous_hash
+
+    def get_base_file_hash(self, hash = None):
+        previous_hash = self.get_previous_hash
+        if previous_hash == None:
+            return hash
+        else:
+            self.get_base_file_hash(previous_hash)
+
+    def get_list_of_hashes(self, hash):
+        list = [hash]
+        previous_hash = self.get_previous_hash(hash)
+        while (previous_hash != None):
+            list.append(previous_hash)
+            previous_hash = self.get_previous_hash(previous_hash)
+        return list
+
+    def get_patched_file(self, hash):
+        list = self.get_list_of_hashes(hash)
+        base_file_hash = list.pop()
+        first = 1
+        tempFile = tempfile.NamedTemporaryFile()
+        temp = open(tempFile.name, "w+")
+        while (len(list) > 0 or not first == 0):
+            first = 0
+            if not base_file_hash == None:
+                patchProcess = subprocess.Popen(['rdiff', 'patch', self.store.get_object_path(base_file_hash), self.store.get_object_path(list.pop()), '-'], stdout=subprocess.PIPE)
+                base_file_hash = None
+            else:
+                patchProcess = subprocess.Popen(['rdiff', 'patch', temp.name, self.store.get_object_path(list.pop()), '-'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            patch, patchErr = patchProcess.communicate()
+            temp.close()
+            tempFile.close()
+            if (patchErr is None):
+                tempFile = tempfile.NamedTemporaryFile()
+                temp = open(tempFile.name, "w+")
+                temp.write(patch)
+        temp.seek(0)
+        return temp
+
+    def recover(self, block_size = constants.CONST_BLOCK_SIZE):
+        # reverse file_copy()
+        with self.get_patched_file(self.side_dict['hash']) as TF:
+            #recovery_file = os.path.join(self.source_path)#name)
+            with open(self.source_path, "wb") as RF:
+                while True:
+                    block = TF.read(block_size)
+                    RF.write(block)
+                    if not block:
+                        break
+                RF.close()
+            TF.close()
+        self.recovery_stat(self.source_path, self.side_dict['lstat'])

@@ -131,7 +131,7 @@ class BackupObject():
         self.store = store
         self.lstat = lstat # self.make_lstat(lstat) ... nefunguje vid hore
         self.source_dir = os.path.dirname(source_path)
-        self.name = os.path.basename(source_path)
+        self.file_name = os.path.basename(source_path)
 
     def make_side_dict(self, hash):
         return { 'lstat': self.lstat,

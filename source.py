@@ -52,9 +52,9 @@ class SourceFile(SourceObject):
 
     def save_file(self, previous_hash = None):
         if not previous_hash == None:
-            return self.store.save_file(self.source_path, self.name, previous_hash)
+            return self.store.save_file(self.source_path, self.file_name, previous_hash)
         else:
-            return self.store.save_file(self.source_path, self.name)
+            return self.store.save_file(self.source_path, self.file_name)
 
     #REFACTORED
     def backup(self):
@@ -173,7 +173,7 @@ class SourceLnk(SourceObject):
                     # rozny mtime
                     link_target = os.readlink(self.source_path)
                     new_hash = hashlib.sha1(link_target).hexdigest() # spocitaj hash a porovnaj
-                    if (new_hash == self.target_object.side_dict[self.name]['hash']
+                    if (new_hash == self.target_object.side_dict[self.file_name]['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
                         return self.make_side_dict(new_hash)
