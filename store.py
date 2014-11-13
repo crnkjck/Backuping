@@ -331,16 +331,19 @@ class StoreRawFile(StoreFile, file):
             file.__init__(self, file_name)
 
 
-class StoreGzipFile(StoreFile, gzip.GzipFile):
+class StoreGzipFile(StoreFile, file):#gzip.GzipFile):
 
     def __init__(self, source_path, store, lstat, side_dict, file_name):
         if objects_init : print("Initializing StoreGzipFile (%s)") % source_path
         StoreObject.__init__(self, source_path, store, lstat, side_dict)
-        if type(file_name) == gzip.GzipFile:
+        if type(file_name) == file:#gzip.GzipFile:
             self.__dict__.update(file.__dict__)
         else:
-            gzip.GzipFile.__init__(self, file_name)
+            # gzip.GzipFile.__init__(self, file_name)
+            file.__init__(self, file_name)
 
+    def open(self):
+        file.__init__(self, self.name)
 
 class StoreDeltaFile(StoreFile, file):
 
