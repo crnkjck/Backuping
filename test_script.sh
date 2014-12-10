@@ -146,29 +146,48 @@ echo ""
 python backuper backup DataToBackup Backup
 cp -a DataToBackup DataToBackupCopy11
 
-echo "=========== Mounting FUSE file system of backuped data =========="
-echo ""
-python myfuse.py Backup MountPoint &
-sleep 10
-cd MountPoint
-DIRS=(`ls -d */`)
-#for DIR in $DIRS
+#echo "=========== Mounting FUSE file system of backuped data =========="
+#echo ""
+#python myfuse.py Backup MountPoint &
+#sleep 10
+#cd MountPoint
+#DIRS=(`ls -d */`)
+##for DIR in $DIRS
+##do
+##    echo ${DIR}
+##done
+#for i in {1..11}
 #do
-#    echo ${DIR}
+#    echo "========== diff off DataToBackupCopy" ${i} " and " ${DIRS[$i - 1]} " =========="
+#    diff -r ../DataToBackupCopy${i} ${DIRS[$i - 1]}
+#    sleep 5
 #done
+#sleep 5
+#kill %1
+#sleep 5
+
+echo "=========== Recovering backuped data =========="
+cd Backup/target/backups
+DIRS=(`ls`)
+cd ../../..
+cd MountPoint
+for i in {1..11}
+do
+    mkdir DataToBackupCopy${i}
+    python ../backuper recover DataToBackupCopy${i} ../Backup ${DIRS[$i - 1]}
+    sleep 5
+done
 for i in {1..11}
 do
     echo "========== diff off DataToBackupCopy" ${i} " and " ${DIRS[$i - 1]} " =========="
-    diff -r ../DataToBackupCopy${i} ${DIRS[$i - 1]}
+    diff -r ../DataToBackupCopy${i} DataToBackupCopy${i}
     sleep 5
 done
-sleep 5
-kill %1
-sleep 5
+
 echo "=========== Removing all created data =========="
 cd ..
 rm -r DataToBackup
-for i in {1..8}
+for i in {1..11}
 do
     rm -r DataToBackupCopy$i
 done
