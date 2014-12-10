@@ -122,7 +122,7 @@ class SourceDir(SourceObject):
         #(ale podobne treba spravit aj incremental_backup() v SourceFile a SourceLnk).
         main_dict = {}
         for F in os.listdir(self.source_path):
-                next_path = os.path.join(self.source_path,F)
+                next_path = os.path.join(self.source_path, F)
                 if self.target_object != None:
                     oldF = self.target_object.get_object(F)
                 else:

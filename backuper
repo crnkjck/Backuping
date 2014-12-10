@@ -5,22 +5,22 @@ from store import Store
 import sys
 
 
-def initial_backup(source_path, target_path):
-    target = Store(target_path)#'/home/kmm/Plocha/target/new_target')
-    back = NewBackup(source_path,target) # '/home/kmm/Plocha/source'
+def initial_backup(source_path, store_path):
+    store = Store(store_path)#'/home/kmm/Plocha/target/new_target')
+    back = NewBackup(source_path, store) # '/home/kmm/Plocha/source'
     back.backup()
 
 
-def incremental_backup(source_path, target_path, time):
-    target = Store(target_path)#'/home/kmm/Plocha/target/new_target')
-    old_back = ExistingBackup(source_path, target, time)
+def incremental_backup(source_path, store_path, time):
+    store = Store(store_path)#'/home/kmm/Plocha/target/new_target')
+    old_back = ExistingBackup(source_path, store, time)
     #'/home/kmm/Plocha/target/zaloha',target,'2013-04-29T21:00:42')
-    inc_back = NewBackup(source_path,target,old_back)
+    inc_back = NewBackup(source_path, store, old_back)
     inc_back.backup()
 
-def recovery_backup(source_path, target_path, time):
-    target = Store(target_path)#'/home/kmm/Plocha/target/new_target')
-    rec_back = ExistingBackup(source_path, target, time)
+def recovery_backup(source_path, store_path, time):
+    store = Store(store_path)#'/home/kmm/Plocha/target/new_target')
+    rec_back = ExistingBackup(source_path, store, time)
     #'/home/kmm/Plocha/target/zaloha',target,'2013-04-29T21:00:42') # treba vediet cas
     rec_back.recovery_backup()
 

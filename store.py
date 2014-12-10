@@ -14,38 +14,84 @@ from backup_lib import objects_init
 class Store():
 
     def __init__(self, pathname):
-        self.target_path = os.path.join(pathname, "target")
-        if not os.path.exists(self.target_path):
-            os.mkdir(self.target_path)
+        self.store_path = os.path.join(pathname, "target")
+        if not os.path.exists(self.store_path):
+            os.mkdir(self.store_path)
 
-    def init_target_dir(self):
-        if not os.path.exists(self.target_path):
-            os.mkdir(self.target_path)
-        objects_path = os.path.join(self.target_path, "objects")
+    def init_store_dir(self):
+        if not os.path.exists(self.store_path):
+            os.mkdir(self.store_path)
+        objects_path = os.path.join(self.store_path, "objects")
         if not os.path.exists(objects_path):
             os.mkdir(objects_path)
-        backups_path = os.path.join(self.target_path, "backups")
+        backups_path = os.path.join(self.store_path, "backups")
         if not os.path.exists(backups_path):
             os.mkdir(backups_path)
+        journal_path = os.path.join(self.store_path, "journal")
+        if not os.path.exists(journal_path):
+            os.mkdir(journal_path)
+        journal_objects_path = os.path.join(self.store_path, "journal/objects")
+        if not os.path.exists(journal_objects_path):
+            os.mkdir(journal_objects_path)
+        journal_backups_path = os.path.join(self.store_path, "journal/backups")
+        if not os.path.exists(journal_backups_path):
+            os.mkdir(journal_backups_path)
+
 
     def get_path(self):
-        return self.target_path #volania napr. BackupObject.new...(... , target.get_path())
+        return self.store_path #volania napr. BackupObject.new...(... , target.get_path())
 
     def get_backup_path(self, backup_name):
-        backup_path = os.path.join(self.target_path, "backups")
+        backup_path = os.path.join(self.store_path, "backups")
         return os.path.join(backup_path, backup_name)
 
     def get_object_path(self, hash):
-        object_path = os.path.join(self.target_path, "objects")
+        object_path = os.path.join(self.store_path, "objects")
         return os.path.join(object_path, hash + ".data")
 
     def get_object_header_path(self, hash):
-        object_header_path = os.path.join(self.target_path, "objects")
+        object_header_path = os.path.join(self.store_path, "objects")
         return os.path.join(object_header_path, hash + ".meta")
 
     def get_latest_path(self):
-        latest_tmp_path = os.path.join(self.target_path, "backups")
+        latest_tmp_path = os.path.join(self.store_path, "backups")
         return os.path.join(latest_tmp_path, "latest")
+
+    def get_journal_path(self):
+        return os.path.join(self.store_path, "journal")
+
+    def is_jounal_complete(self):
+        journal_path = self.get_journal_path()
+        if (os.path.exists(journal_path)):
+            if (os.path.isfile(os.path.join(journal_path, "journal_complete"))):
+                return True
+            elif (os.path.isfile(os.path.join(journal_path, "journal_incomplete"))):
+                print("Clearing Journal")
+                self.remove_incomplete_journal(journal_path)
+                os.remove(os.path.join(journal_path, "journal_incomplete"))
+                return False
+        return False
+
+    def remove_incomplete_journal(self):
+        journal_path = self.get_journal_path()
+        for file_object in os.listdir(os.path.join(journal_path, "objects")):
+            os.remove(os.path.join(journal_path, "objects", file_object))
+        for file_object in os.listdir(os.path.join(journal_path, "backups")):
+            os.remove(os.path.join(journal_path, "backups", file_object))
+
+    def commit(self):
+        print("Committing Journal")
+        journal_path = self.get_journal_path()
+        if (self.is_jounal_complete()):
+            with open(os.path.join(journal_path, "journal_complete"), "wb") as TF:
+                for command in TF:
+                    words = command.split()
+                    if (words[0] == "move"):
+                        os.rename(words[1], words[2])
+                    elif (words[0] == "remove"):
+                        os.remove(words[1])
+                TF.close()
+            os.remove(os.path.join(journal_path, "journal_complete"))
 
     @staticmethod
     def file_rename(old_name, new_name):

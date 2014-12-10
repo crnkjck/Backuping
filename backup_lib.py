@@ -69,7 +69,7 @@ class NewBackup(Backup):
     def backup(self):
         from source import SourceObject
         # vytvori novu zalohu
-        self.store.init_target_dir()
+        self.store.init_store_dir()
         if self.existing_backup == None:    
             trg_object = None
         else:
