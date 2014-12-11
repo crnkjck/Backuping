@@ -103,12 +103,7 @@ class SourceDir(SourceObject):
         hash_name = hashlib.sha1(pi).hexdigest()
         if (self.target_object == None
             or not os.path.exists(self.store.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
-            with self.store.get_object_file(hash_name, "wb") as DF:
-                with self.store.get_object_file_header(hash_name, "wb") as DHF:
-                    DHF.write("directory\n")
-                    DF.write(pi)
-                    DF.close()
-                    DHF.close()
+            self.store.save_directory(pi, hash_name)
         return hash_name
 
     def backup(self):
@@ -146,15 +141,7 @@ class SourceLnk(SourceObject):
         link_target = os.readlink(self.source_path)
         hash_name = hashlib.sha1()
         hash_name.update(link_target)
-        with self.store.get_object_file(hash_name.hexdigest(), "wb") as DF:
-            with self.store.get_object_file_header(hash_name.hexdigest(), "wb") as DHF:
-                DHF.write("link\n")
-                DHF.write("signature\n")
-                DHF.write(str(0))
-                DHF.write("\n")
-                DF.write(link_target)
-                DHF.close()
-            DF.close()
+        self.store.save_link(link_target, hash_name)
         return hash_name.hexdigest()
 
     #def initial_backup(self):

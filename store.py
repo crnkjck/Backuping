@@ -3,6 +3,7 @@ __author__ = 'papaja'
 import pickle
 import os
 import hashlib
+import shutil
 import gzip
 import constants
 import subprocess
@@ -45,29 +46,49 @@ class Store():
         backup_path = os.path.join(self.store_path, "backups")
         return os.path.join(backup_path, backup_name)
 
+    def get_journal_backup_path(self, backup_name):
+        backup_path = os.path.join(self.get_journal_path(), "backups")
+        return os.path.join(backup_path, backup_name)
+
+    def get_journal_backup_path(self, backup_name):
+        backup_path = os.path.join(self.get_journal_path(), "backups")
+        return os.path.join(backup_path, backup_name)
+
     def get_object_path(self, hash):
         object_path = os.path.join(self.store_path, "objects")
+        return os.path.join(object_path, hash + ".data")
+
+    def get_journal_object_path(self, hash):
+        object_path = os.path.join(self.get_journal_path(), "objects")
         return os.path.join(object_path, hash + ".data")
 
     def get_object_header_path(self, hash):
         object_header_path = os.path.join(self.store_path, "objects")
         return os.path.join(object_header_path, hash + ".meta")
 
+    def get_journal_object_header_path(self, hash):
+        object_header_path = os.path.join(self.get_journal_path(), "objects")
+        return os.path.join(object_header_path, hash + ".meta")
+
     def get_latest_path(self):
         latest_tmp_path = os.path.join(self.store_path, "backups")
+        return os.path.join(latest_tmp_path, "latest")
+
+    def get_journal_latest_path(self):
+        latest_tmp_path = os.path.join(self.get_journal_path(), "backups")
         return os.path.join(latest_tmp_path, "latest")
 
     def get_journal_path(self):
         return os.path.join(self.store_path, "journal")
 
-    def is_jounal_complete(self):
+    def is_journal_complete(self):
         journal_path = self.get_journal_path()
         if (os.path.exists(journal_path)):
             if (os.path.isfile(os.path.join(journal_path, "journal_complete"))):
                 return True
             elif (os.path.isfile(os.path.join(journal_path, "journal_incomplete"))):
                 print("Clearing Journal")
-                self.remove_incomplete_journal(journal_path)
+                self.remove_incomplete_journal()
                 os.remove(os.path.join(journal_path, "journal_incomplete"))
                 return False
         return False
@@ -79,15 +100,31 @@ class Store():
         for file_object in os.listdir(os.path.join(journal_path, "backups")):
             os.remove(os.path.join(journal_path, "backups", file_object))
 
+    def write_to_journal(self, command):
+        journal_path = self.get_journal_path()
+        with open(os.path.join(journal_path, "journal_incomplete"), "a") as TF:
+            TF.write(command + "\n")
+            TF.close()
+
+    def finish_journal(self):
+        journal_file = open(os.path.join(self.get_journal_path(), "journal_incomplete"), "r+")
+        uniqlines = set(journal_file.readlines())
+        journal_file.close()
+        journal_file = open(os.path.join(self.get_journal_path(), "journal_incomplete"), "w")
+        journal_file.writelines(uniqlines)
+        journal_file.close()
+        self.file_rename(os.path.join(self.get_journal_path(), "journal_incomplete"), "journal_complete")
+
     def commit(self):
         print("Committing Journal")
         journal_path = self.get_journal_path()
-        if (self.is_jounal_complete()):
-            with open(os.path.join(journal_path, "journal_complete"), "wb") as TF:
+        if (self.is_journal_complete()):
+            with open(os.path.join(journal_path, "journal_complete"), "rb") as TF:
                 for command in TF:
                     words = command.split()
                     if (words[0] == "move"):
-                        os.rename(words[1], words[2])
+                        shutil.move(words[1], words[2])
+                        #os.rename(words[1], words[2])
                     elif (words[0] == "remove"):
                         os.remove(words[1])
                 TF.close()
@@ -100,8 +137,8 @@ class Store():
 
     def save_file(self, source_path, name, previous_hash = None, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
-        target_file = self.get_object_path(name)
-        target_file_header = self.get_object_header_path(name)
+        target_file = self.get_journal_object_path(name)
+        target_file_header = self.get_journal_object_header_path(name)
         if not previous_hash == None:
             previous_type = self.get_object_type(previous_hash)
             if previous_type == "gz\n" or previous_type == "delta\n" :
@@ -139,6 +176,8 @@ class Store():
                                 self.file_rename(target_file_header, file_hash.hexdigest() + ".meta")
                                 break
                     TF.close()
+                    self.write_to_journal("move " + self.get_journal_object_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".data"))
+                    self.write_to_journal("move " + self.get_journal_object_header_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".meta"))
                 return file_hash.hexdigest()
             # elif self.get_object_type(previous_hash) == "delta\n":
             #
@@ -168,14 +207,51 @@ class Store():
                                 THF.close()
                             break
                     TF.close()
+                    self.write_to_journal("move " + self.get_journal_object_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".data"))
+                    self.write_to_journal("move " + self.get_journal_object_header_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".meta"))
                 SF.close()
             return file_hash.hexdigest()
+
+    def save_directory(self, pi, hash_name):
+        with self.get_journal_object_file(hash_name, "wb") as DF:
+            with self.get_journal_object_file_header(hash_name, "wb") as DHF:
+                DHF.write("directory\n")
+                DF.write(pi)
+                DF.close()
+                DHF.close()
+        self.write_to_journal("move " + DF.name + " " + os.path.join(self.store_path, "objects", hash_name + ".data"))
+        self.write_to_journal("move " + DHF.name + " " + os.path.join(self.store_path, "objects", hash_name + ".meta"))
+
+    def save_link(self, link, hash_name):
+        with self.get_journal_object_file(hash_name.hexdigest(), "wb") as DF:
+            with self.get_journal_object_file_header(hash_name.hexdigest(), "wb") as DHF:
+                DHF.write("link\n")
+                DHF.write("signature\n")
+                DHF.write(str(0))
+                DHF.write("\n")
+                DF.write(link)
+                DHF.close()
+            DF.close()
+        self.write_to_journal("move " + DF.name + " " + os.path.join(self.store_path, "objects", hash_name.hexdigest() + ".data"))
+        self.write_to_journal("move " + DHF.name + " " + os.path.join(self.store_path, "objects", hash_name.hexdigest() + ".meta"))
+
+    def save_data(self, file_name, data):
+        with open(file_name,"wb") as BF:
+            BF.write(data)
+            BF.close()
+        self.write_to_journal("move " + BF.name + " " + os.path.join(self.store_path, "backups"))
 
     def get_object_file(self, hash, mode):
         return open(self.get_object_path(hash), mode)
 
+    def get_journal_object_file(self, hash, mode):
+        return open(self.get_journal_object_path(hash), mode)
+
     def get_object_file_header(self, hash, mode):
         return open(self.get_object_header_path(hash), mode)
+
+    def get_journal_object_file_header(self, hash, mode):
+        return open(self.get_journal_object_header_path(hash), mode)
 
     def get_object_type(self, hash):
         with self.get_object_file_header(hash, "rb") as HF:
