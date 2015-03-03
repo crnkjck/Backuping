@@ -236,7 +236,7 @@ class Store():
         self.write_to_journal("move " + DHF.name + " " + os.path.join(self.store_path, "objects", hash_name.hexdigest() + ".meta"))
 
     def save_data(self, file_name, data):
-        with open(file_name,"wb") as BF:
+        with open(file_name, "wb") as BF:
             BF.write(data)
             BF.close()
         self.write_to_journal("move " + BF.name + " " + os.path.join(self.store_path, "backups"))
@@ -264,11 +264,12 @@ class Store():
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
         file_hash = hashlib.sha1()
-        with open(src_file, "rb") as SF :
+        with open(src_file, "rb") as SF:
             while True:
                 block = SF.read(block_size)
                 file_hash.update(block)
                 if not block : break
+            SF.close()
         return file_hash.hexdigest()
 
 
@@ -398,8 +399,8 @@ class StoreDir(StoreObject):
     def unpickling(self, store_path):
         #unpkl_file = os.path.join(target_path, file_name)
         with open(store_path, "rb") as UPF:
-                pi = UPF.read()
-                UPF.close()
+            pi = UPF.read()
+            UPF.close()
         return_dict = pickle.loads(pi)
         #print return_dict
         return return_dict
