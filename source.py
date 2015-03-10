@@ -7,6 +7,7 @@ from stat import *
 from backup_lib import BackupObject
 from backup_lib import verbose
 from backup_lib import objects_init
+from backup_lib import debug_fds, fds_open_now, check_fds
 
 class SourceObject(BackupObject):
 
@@ -58,6 +59,7 @@ class SourceFile(SourceObject):
 
     #REFACTORED
     def backup(self):
+        if debug_fds: fds_open = fds_open_now()
         # ak sa zmenil mtime, tak ma zmysel pozerat sa na obsah suboru
         # inak sa mozno zmenili zaujimave metadata
         if self.target_object != None:
@@ -67,6 +69,7 @@ class SourceFile(SourceObject):
                     if verbose : print("Lnk mTime bez zmeny. return novy side_dict(stary_hash) !")
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
+                    if debug_fds: check_fds(fds_open)
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
@@ -75,18 +78,22 @@ class SourceFile(SourceObject):
                     if (new_hash == self.target_object.side_dict['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("File mTime zmeneny. return novy side_dict(novy_hash) !")
+                        if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("File Novy object zalohy.")
                         hash = self.save_file(self.target_object.side_dict['hash'])
+                        if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(hash)
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
                 #tu incIndex???
+                if debug_fds: check_fds(fds_open)
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("File Novy object zalohy.")
             hash = self.save_file()
+            if debug_fds: check_fds(fds_open)
             return self.make_side_dict(hash)
 
 
@@ -108,6 +115,7 @@ class SourceDir(SourceObject):
         return hash_name
 
     def backup(self):
+        if debug_fds: fds_open = fds_open_now()
         #Metoda SourceDir.incremental_backup() je zmatocna.
         #Ak neexistuje self.target_object (teda stara cielova verzia aktualneho adresara),
         #metodu initial_backup() treba volat na podobjekt v adresari
@@ -129,6 +137,7 @@ class SourceDir(SourceObject):
                     main_dict[F] = side_dict
         #print main_dict
         hash = self.pickling(main_dict)
+        if debug_fds: check_fds(fds_open)
         return self.make_side_dict(hash)
 
 class SourceLnk(SourceObject):
@@ -150,6 +159,7 @@ class SourceLnk(SourceObject):
     #            return self.make_side_dict(self.make_lnk())
 
     def backup(self):
+        if debug_fds: fds_open = fds_open_now()
         if self.target_object != None:
             if not self.compare_stat(self.lstat, self.target_object.lstat): # ak sa nerovnaju lstaty
                 if (self.lstat.st_mtime == self.target_object.lstat.st_mtime
@@ -158,6 +168,7 @@ class SourceLnk(SourceObject):
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
                     #tu incIndex???
+		    if debug_fds: check_fds(fds_open)
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
@@ -167,14 +178,18 @@ class SourceLnk(SourceObject):
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
                         #tu incIndex???
+			if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("Lnk Novy object zalohy !")
+			if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(self.make_lnk())
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
                 #tu incIndex???
+                if debug_fds: check_fds(fds_open)
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("Lnk Novy object zalohy.")
+            if debug_fds: check_fds(fds_open)
             return self.make_side_dict(self.make_lnk())

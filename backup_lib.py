@@ -1,13 +1,15 @@
 from datetime import datetime as datum
 import pickle
 import os
+import inspect
 
 verbose = True
 #print "verbose = (%s)" % (verbose)
 debug = True
-#print "debug = (%s)" % (verbose)
+#print "debug = (%s)" % (debug)
 objects_init = True
 #print "objects_init = (%s)" % (objects_init)
+debug_fds = True
 
 
 class Backup():
@@ -151,4 +153,14 @@ class BackupObject():
     def file_rename(self, old_name, new_name):
         new_file_name = os.path.join(os.path.dirname(old_name), new_name)
         os.rename(old_name, new_file_name)
+
+def fds_open_now():
+    return len(os.listdir('/proc/self/fd'))
+
+def check_fds(prev_count):
+    current_count = fds_open_now()
+    if prev_count != current_count:
+        caller = inspect.getframeinfo(inspect.stack()[1][0])
+	print('File descriptor leak detected in {}@{}: {}'.format(
+                caller.filename, caller.lineno, current_count-prev_count))
 
