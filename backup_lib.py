@@ -24,10 +24,8 @@ class Backup():
 
     def make_backup(self, time, side_dict):
         pickled_dict = pickle.dumps(side_dict)
-        file_name = self.store.get_backup_path(time)
-        with open(file_name,"wb") as BF:
-            BF.write(pickled_dict)
-            BF.close()
+        file_name = self.store.get_journal_backup_path(time)
+        self.store.save_data(file_name, pickled_dict)
                         
     def get_backup(self, time): 
         file_name = self.store.get_backup_path(time)
@@ -38,10 +36,8 @@ class Backup():
         return side_dict
 
     def update_latest_backup(self, time):# neskor v target
-        file_name = self.store.get_latest_path()
-        with open(file_name, "wb") as LF:
-            LF.write(time)
-            LF.close()
+        file_name = self.store.get_journal_latest_path()
+        self.store.save_data(file_name, time)
 
     def read_latest_backup(self, store):# neskor v target
         file_name = store.get_latest_path()
@@ -69,8 +65,9 @@ class NewBackup(Backup):
     def backup(self):
         from source import SourceObject
         # vytvori novu zalohu
-        self.store.init_target_dir()
-        if self.existing_backup == None:    
+        self.store.is_journal_complete()
+        self.store.init_store_dir()
+        if self.existing_backup == None:
             trg_object = None
         else:
             trg_object = self.existing_backup.get_root_object()
@@ -79,6 +76,8 @@ class NewBackup(Backup):
         backup_time = self.get_time()
         self.make_backup(backup_time, new_side_dict)
         self.update_latest_backup(backup_time)
+        self.store.finish_journal()
+        self.store.commit()
     
 
 class ExistingBackup(Backup):
@@ -131,7 +130,7 @@ class BackupObject():
         self.store = store
         self.lstat = lstat # self.make_lstat(lstat) ... nefunguje vid hore
         self.source_dir = os.path.dirname(source_path)
-        self.name = os.path.basename(source_path)
+        self.file_name = os.path.basename(source_path)
 
     def make_side_dict(self, hash):
         return { 'lstat': self.lstat,

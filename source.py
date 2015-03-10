@@ -50,8 +50,11 @@ class SourceFile(SourceObject):
         #print source_path
         SourceObject.__init__(self, source_path, store, lstat, target_object)
 
-    def save_file(self):
-        return self.store.save_file(self.source_path, self.name)
+    def save_file(self, previous_hash = None):
+        if not previous_hash == None:
+            return self.store.save_file(self.source_path, self.file_name, previous_hash)
+        else:
+            return self.store.save_file(self.source_path, self.file_name)
 
     #REFACTORED
     def backup(self):
@@ -68,16 +71,18 @@ class SourceFile(SourceObject):
                 else:
                     # rozny mtime
                     new_hash = self.store.get_hash(self.source_path) # spocitaj hash a porovnaj
+                    # ak je to delta treba zrekonstruovat koncovy subor a pytat sa na ten?
                     if (new_hash == self.target_object.side_dict['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("File mTime zmeneny. return novy side_dict(novy_hash) !")
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("File Novy object zalohy.")
-                        hash = self.save_file()
+                        hash = self.save_file(self.target_object.side_dict['hash'])
                         return self.make_side_dict(hash)
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
+                #tu incIndex???
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("File Novy object zalohy.")
@@ -99,12 +104,7 @@ class SourceDir(SourceObject):
         hash_name = hashlib.sha1(pi).hexdigest()
         if (self.target_object == None
             or not os.path.exists(self.store.get_object_path(hash_name))): #or ...hashe sa nerovnaju...:
-            with self.store.get_object_file(hash_name, "wb") as DF:
-                with self.store.get_object_file_header(hash_name, "wb") as DHF:
-                    DHF.write("directory\n")
-                    DF.write(pi)
-                    DF.close()
-                    DHF.close()
+            self.store.save_directory(pi, hash_name)
         return hash_name
 
     def backup(self):
@@ -118,14 +118,15 @@ class SourceDir(SourceObject):
         #(ale podobne treba spravit aj incremental_backup() v SourceFile a SourceLnk).
         main_dict = {}
         for F in os.listdir(self.source_path):
-                next_path = os.path.join(self.source_path,F)
+                next_path = os.path.join(self.source_path, F)
                 if self.target_object != None:
                     oldF = self.target_object.get_object(F)
                 else:
                     oldF = None
                 new_object = SourceObject.create(next_path, self.store, oldF)
-                side_dict = new_object.backup()
-                main_dict[F] = side_dict
+                if new_object != None:
+                    side_dict = new_object.backup()
+                    main_dict[F] = side_dict
         #print main_dict
         hash = self.pickling(main_dict)
         return self.make_side_dict(hash)
@@ -142,15 +143,7 @@ class SourceLnk(SourceObject):
         link_target = os.readlink(self.source_path)
         hash_name = hashlib.sha1()
         hash_name.update(link_target)
-        with self.store.get_object_file(hash_name.hexdigest(), "wb") as DF:
-            with self.store.get_object_file_header(hash_name.hexdigest(), "wb") as DHF:
-                DHF.write("link\n")
-                DHF.write("signature\n")
-                DHF.write(str(0))
-                DHF.write("\n")
-                DF.write(link_target)
-                DHF.close()
-            DF.close()
+        self.store.save_link(link_target, hash_name)
         return hash_name.hexdigest()
 
     #def initial_backup(self):
@@ -164,20 +157,23 @@ class SourceLnk(SourceObject):
                     if verbose : print("Lnk mTime bez zmeny. return novy side_dict(stary_hash) !")
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
+                    #tu incIndex???
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
                     link_target = os.readlink(self.source_path)
                     new_hash = hashlib.sha1(link_target).hexdigest() # spocitaj hash a porovnaj
-                    if (new_hash == self.target_object.side_dict[self.name]['hash']
+                    if (new_hash == self.target_object.side_dict[self.file_name]['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
+                        #tu incIndex???
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("Lnk Novy object zalohy !")
                         return self.make_side_dict(self.make_lnk())
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
+                #tu incIndex???
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("Lnk Novy object zalohy.")

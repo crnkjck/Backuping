@@ -137,11 +137,13 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
             yield r
 
     def readlink(self, path):
-        pathname = os.readlink(self._full_path(path))
-        if pathname.startswith("/"):
-            return os.path.relpath(pathname, self.root)
-        else:
-            return pathname
+        object = self._get_object(path)
+        return object.read_backuped_lnk()
+        # pathname = os.readlink(self._full_path(path))
+        # if pathname.startswith("/"):
+        #     return os.path.relpath(pathname, self.root)
+        # else:
+        #     return pathname
 
     def mknod(self, path, mode, dev):
         raise IOError(errno.EROFS, 'Read only filesystem')
@@ -186,7 +188,7 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
                 global counter
                 counter += 1
                 self.gzipFiles[counter] = object
-                object.rewind()
+                #object.rewind()
                 #f.rewind()
                 fh = counter
             return fh
@@ -205,9 +207,11 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
         #return zlib.decompress(os.read(fh, length))
         #print("read({},{},{},{})".format(path,length,offset,fh))
         with self.fileslock:
+            if self.gzipFiles[fh].closed:
+                self.gzipFiles[fh].open()
             self.gzipFiles[fh].seek(offset)
-            with self._patch_gzip_for_partial():
-                return self.gzipFiles[fh].read(length)
+            #with self._patch_gzip_for_partial(): pre gzip vratit spat
+            return self.gzipFiles[fh].read(length)
         #return None
 
     def write(self, path, buf, offset, fh):
@@ -219,8 +223,9 @@ class BackupFS(fuse.LoggingMixIn, fuse.Operations):
             f.truncate(length)
 
     def flush(self, path, fh):
-        return self.gzipFiles[fh].flush()
-        ##return os.fsync(fh)
+        # return self.gzipFiles[fh].flush()
+        # return os.fsync(fh)
+        return 0
 
     def release(self, path, fh):
         ##os.close(fh);
@@ -260,9 +265,9 @@ class Backups:
                     folders.append(path)
                 break
         folders.reverse()
-        print "file je: " + file + "folders su: " + ', '.join(folders) + "backup je: "
+        print("file je: " + file + "folders su: " + ', '.join(folders) + "backup je: ")
         return file, folders, backup
-    #
+    #()xcsadasdadadsadasda
     # def _get_object(self, path):
     #     dictOfExistingBackups = self.getAllBackups()
     #     file, folders, backup = self._parse_path(path)
@@ -320,7 +325,7 @@ class Backups:
 
 
 def main(root, mountPoint):
-    logging.basicConfig(level=logging.DEBUG)
+    # logging.basicConfig(level=logging.DEBUG)
     allbackups = Backups(root, mountPoint)
     fuse.FUSE(BackupFS(os.path.join(root, "target/backups/"), mountPoint, allbackups), mountPoint, foreground=True, default_permissions=True)
 
