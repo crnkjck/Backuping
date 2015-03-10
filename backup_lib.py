@@ -157,10 +157,15 @@ class BackupObject():
 def fds_open_now():
     return len(os.listdir('/proc/self/fd'))
 
-def check_fds(prev_count):
+def check_fds(prev_count, info = None):
     current_count = fds_open_now()
     if prev_count != current_count:
         caller = inspect.getframeinfo(inspect.stack()[1][0])
-	print('File descriptor leak detected in {}@{}: {}'.format(
-                caller.filename, caller.lineno, current_count-prev_count))
+	if info is not None:
+	    info = ". More info: {}".format(info)
+	else:
+	    info = ""
+	print('File descriptor leak detected in {}@{}: {}{}'.format(
+                caller.filename, caller.lineno, current_count-prev_count,
+		info))
 

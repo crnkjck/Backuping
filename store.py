@@ -11,6 +11,7 @@ import tempfile
 from stat import *
 from backup_lib import BackupObject
 from backup_lib import objects_init
+from backup_lib import debug_fds, fds_open_now, check_fds
 
 class Store():
 
@@ -136,6 +137,7 @@ class Store():
         os.rename(old_name, new_file_name)
 
     def save_file(self, source_path, name, previous_hash = None, block_size = constants.CONST_BLOCK_SIZE):
+        if debug_fds: fds_open = fds_open_now()
         file_hash = hashlib.sha1()
         target_file = self.get_journal_object_path(name)
         target_file_header = self.get_journal_object_header_path(name)
@@ -178,6 +180,7 @@ class Store():
                     TF.close()
                     self.write_to_journal("move " + self.get_journal_object_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".data"))
                     self.write_to_journal("move " + self.get_journal_object_header_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".meta"))
+                if debug_fds: check_fds(fds_open)
                 return file_hash.hexdigest()
             # elif self.get_object_type(previous_hash) == "delta\n":
             #
@@ -210,6 +213,7 @@ class Store():
                     self.write_to_journal("move " + self.get_journal_object_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".data"))
                     self.write_to_journal("move " + self.get_journal_object_header_path(file_hash.hexdigest()) + " " + os.path.join(self.store_path, "objects", file_hash.hexdigest() + ".meta"))
                 SF.close()
+            if debug_fds: check_fds(fds_open)
             return file_hash.hexdigest()
 
     def save_directory(self, pi, hash_name):

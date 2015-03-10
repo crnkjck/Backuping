@@ -126,6 +126,7 @@ class SourceDir(SourceObject):
         #(ale podobne treba spravit aj incremental_backup() v SourceFile a SourceLnk).
         main_dict = {}
         for F in os.listdir(self.source_path):
+                if debug_fds: fds_open_in_loop = fds_open_now()
                 next_path = os.path.join(self.source_path, F)
                 if self.target_object != None:
                     oldF = self.target_object.get_object(F)
@@ -135,6 +136,7 @@ class SourceDir(SourceObject):
                 if new_object != None:
                     side_dict = new_object.backup()
                     main_dict[F] = side_dict
+                if debug_fds: check_fds(fds_open_in_loop, F)
         #print main_dict
         hash = self.pickling(main_dict)
         if debug_fds: check_fds(fds_open)
@@ -168,7 +170,7 @@ class SourceLnk(SourceObject):
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
                     #tu incIndex???
-		    if debug_fds: check_fds(fds_open)
+                    if debug_fds: check_fds(fds_open)
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
@@ -178,11 +180,11 @@ class SourceLnk(SourceObject):
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
                         #tu incIndex???
-			if debug_fds: check_fds(fds_open)
+                        if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("Lnk Novy object zalohy !")
-			if debug_fds: check_fds(fds_open)
+                        if debug_fds: check_fds(fds_open)
                         return self.make_side_dict(self.make_lnk())
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
