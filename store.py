@@ -259,7 +259,7 @@ class Store():
             HF.close()
             return object_type
 
-    def get_object(self, source_path ,hash, side_dict):
+    def get_object(self, source_path, hash, side_dict):
         return StoreObject.create(source_path, self, side_dict)
 
     def get_hash(self, src_file, block_size = constants.CONST_BLOCK_SIZE):
@@ -271,6 +271,24 @@ class Store():
                 if not block : break
             SF.close()
         return file_hash.hexdigest()
+
+    def incIndex(self, hash):
+        #najdem index v db, ak existuje update ++1, ak nie insert s hodnotou 1
+        return
+
+    def decIndex(self, hash):
+        #najdem index v db, ak je 1 tak: mazem/--1 a maze garbage, ak nie tak len --1
+        return
+
+    def rebuildDB(self):
+        return
+
+    def deleteFile(self, hash):
+        header_path = self.get_object_header_path(hash)
+        object_path = self.get_object_path(hash)
+        os.remove(header_path)
+        os.remove(object_path)
+
 
 
 class StoreObject(BackupObject):

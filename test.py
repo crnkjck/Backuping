@@ -1,7 +1,12 @@
+from aptdaemon.progress import DaemonAcquireProgress
 import io
-import sys
+import os
 import subprocess
 import tempfile
+import pickledb
+import shutil
+from stat import *
+from CodernityDB.database import Database
 
 class MyFile(io.FileIO):
 
@@ -12,6 +17,35 @@ class MyFile(io.FileIO):
             io.FileIO.__init__(self, name)
 
 def main():
+    db2 = pickledb.load('examlple.db', True)
+    db2.set('test', 'test')
+
+    db = Database('/tmp/example.db')
+    db.create()
+    for x in xrange(100):
+        db.insert(dict(x=x))
+    for curr in db.all('id'):
+        curr['x'] = 1
+        db.update(curr)
+        print curr
+
+    lstat = os.lstat("/home/papaja/.cache/keyring-SZ5Lrw/gpg")
+    mode = lstat.st_mode
+    if S_ISDIR(mode):
+        print("dir")
+    elif S_ISREG(mode):
+        print("file")
+    elif S_ISLNK(mode):
+        print("link")
+    else:
+        print("None")
+        print(mode)
+        print(lstat)
+        print(S_ISFIFO(mode))
+    exit()
+    #print(os.readlink('/home/papaja/Zaloha/target/objects/test'))
+    #shutil.move("/home/papaja/Zaloha/target/journal/objects/a3fe40b52ec03a7e2d8c8c0ca86baaf0192038c5.meta", "/home/papaja/Zaloha/target/objects")
+    #shutil.rmtree(os.path.join("/home/papaja/", "objects"))
     # myFile = MyFile('/home/papaja/third')
     # print(myFile.readline().decode("UTF-8"))
     # dst = open('/home/mint/Diplomovka/first', 'wb')

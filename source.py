@@ -82,6 +82,7 @@ class SourceFile(SourceObject):
                         return self.make_side_dict(hash)
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
+                #tu incIndex???
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("File Novy object zalohy.")
@@ -123,8 +124,9 @@ class SourceDir(SourceObject):
                 else:
                     oldF = None
                 new_object = SourceObject.create(next_path, self.store, oldF)
-                side_dict = new_object.backup()
-                main_dict[F] = side_dict
+                if new_object != None:
+                    side_dict = new_object.backup()
+                    main_dict[F] = side_dict
         #print main_dict
         hash = self.pickling(main_dict)
         return self.make_side_dict(hash)
@@ -155,6 +157,7 @@ class SourceLnk(SourceObject):
                     if verbose : print("Lnk mTime bez zmeny. return novy side_dict(stary_hash) !")
                     # rovanky mtime
                     # vyrob side dict stary hash + aktualny lstat
+                    #tu incIndex???
                     return self.make_side_dict(self.target_object.side_dict['hash']) #stary hash
                 else:
                     # rozny mtime
@@ -163,12 +166,14 @@ class SourceLnk(SourceObject):
                     if (new_hash == self.target_object.side_dict[self.file_name]['hash']
                         or os.path.exists(self.store.get_object_path(new_hash))):
                         if verbose : print("Lnk mTime zmeneny. return novy side_dict(novy_hash) !")
+                        #tu incIndex???
                         return self.make_side_dict(new_hash)
                     else:
                         if verbose : print("Lnk Novy object zalohy !")
                         return self.make_side_dict(self.make_lnk())
             else:
                 if verbose : print("Lnk mTime zmeneny. rovnake meta")
+                #tu incIndex???
                 return self.target_object.side_dict # ak sa rovnaju staty
         else:
             if verbose : print("Lnk Novy object zalohy.")
